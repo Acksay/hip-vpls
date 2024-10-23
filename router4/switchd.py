@@ -225,10 +225,12 @@ ether_if_th_loop.start();
 def run_switch():
     while True:
         try:
+            """
             packets = hiplib.maintenance();
             for (packet, dest) in packets:
                 hip_socket.sendto(packet, dest)
             logging.debug("...Periodic cleaning task...")
+            """
             sleep(1);
         except Exception as e:
             logging.critical("Exception occured while processing HIP packets in maintenance loop")
