@@ -19,7 +19,7 @@ done
 
 
 # Copy relevant folders from router 1 to router 2 3 and 4
-for f in crypto packets databases
+for f in crypto packets databases utils
 do
 	for i in ${project}${r2}/${f} ${project}${r3}/${f} ${project}${r4}/${f}
 	do 

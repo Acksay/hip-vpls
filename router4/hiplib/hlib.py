@@ -75,7 +75,7 @@ from hiplib.databases import resolver
 from hiplib.databases import Firewall
 # Utilities
 from hiplib.utils.misc import Utils
-from hiplib.crypto.ecbd import ECBD
+from hiplib.crypto.ecbd import ECBD, ECBDV2
 
 class HIPLib():
     def __init__(self, config):
@@ -150,8 +150,8 @@ class HIPLib():
         self.key_info_storage  = HIPState.Storage();
         self.esp_transform_storage = HIPState.Storage();
         self.hi_param_storage  = HIPState.Storage();
-        self.ecbd_storage = ECBD(4);
-        self.ecbd_storage.set_index(self.id);
+        self.ecbd_storage = ECBDV2(self.id);
+        #self.ecbd_storage.set_index(self.id);
 
         if self.config["general"]["rekey_after_packets"] > ((2<<32)-1):
             self.config["general"]["rekey_after_packets"] = (2<<32)-1;
@@ -418,12 +418,15 @@ class HIPLib():
                 logging.debug("from " + src_str);
                 for parameter in hip_packet.get_parameters():
                     if isinstance(parameter, HIP.ECBDParameter):
-                        self.ecbd_storage.z_list[int(src_str[-1])-1] = Math.bytes_to_int(parameter.get_public_value());
-                        logging.debug("ECBD I1 public z key value: %d ", Math.bytes_to_int(parameter.get_public_value()));
+                        z_list = self.ecbd_storage.decode_public_list(parameter.get_public_value());
+                        #self.ecbd_storage.z_list[int(src_str[-1])-1] = self.ecbd_storage.decode_z_list(parameter.get_public_value());
+                        #logging.debug("ECBD I1 received z list: %d ", z_list);
                         logging.debug("Z-list:");
-                        logging.debug(self.ecbd_storage.z_list);
-                        logging.debug("X-list:");
-                        logging.debug(self.ecbd_storage.x_list);
+                        logging.info(z_list);
+                        return []
+                        #logging.debug(self.ecbd_storage.z_list);
+                        #logging.debug("X-list:");
+                        #logging.debug(self.ecbd_storage.x_list);
 
                 ecbd_param = HIP.ECBDParameter();
                 ecbd_param.set_group_id(4);
@@ -1706,8 +1709,6 @@ class HIPLib():
                             logging.debug(self.ecbd_storage.z_list);
                             logging.debug(self.ecbd_storage.x_list);
                             logging.debug("ECBD R2 shared key: %d ", key);
-
-                        return []
                     if isinstance(parameter, HIP.ESPInfoParameter):
                         #logging.debug("ESP info parameter");
                         esp_info_param = parameter;
@@ -2586,6 +2587,7 @@ class HIPLib():
                 hip_state = self.hip_state_machine.get(Utils.ipv6_bytes_to_hex_formatted(ihit), 
                     Utils.ipv6_bytes_to_hex_formatted(rhit));
             if hip_state.is_unassociated() or hip_state.is_closing() or hip_state.is_closed():
+
                 #logging.debug("Unassociate state reached");
                 #logging.debug("Starting HIP BEX %f" % (time.time()));
                 #logging.info("Resolving %s to IPv4 address" % Utils.ipv6_bytes_to_hex_formatted(rhit));
@@ -2602,6 +2604,8 @@ class HIPLib():
                     Utils.ipv4_to_int(dst_str));
                 src = Math.int_to_bytes(
                     Utils.ipv4_to_int(src_str));
+                
+                logging.info("src: {}, dst: {}".format(src_str, dst_str))
 
                 st = time.time();
                 # Construct the DH groups parameter
@@ -2619,11 +2623,13 @@ class HIPLib():
                 #ecbd
                 ecbd_param = HIP.ECBDParameter();
                 ecbd_param.set_group_id(4);
-                public_z = self.ecbd_storage.compute_public_z();
-                ecbd_param.add_public_value(Math.int_to_bytes(public_z));
+                public_z = self.ecbd_storage.get_z();
+                #ecbd_param.add_public_value(Math.int_to_bytes(public_z))
+                #ecbd_param.add_public_value(b"".join(b"1" for i in range(256)))
+                ecbd_param.add_public_value(self.ecbd_storage.encode_z_list());
+
                 hip_i1_packet.add_parameter(ecbd_param);
                 hip_i1_packet.add_parameter(dh_groups_param);
-
 
                 # Compute the checksum of HIP packet
                 checksum = Utils.hip_ipv4_checksum(
@@ -2633,6 +2639,7 @@ class HIPLib():
                     hip_i1_packet.get_length() * 8 + 8, 
                     hip_i1_packet.get_buffer());
                 hip_i1_packet.set_checksum(checksum);
+
 
                 # Construct the IPv4 packet
                 ipv4_packet = IPv4.IPv4Packet();

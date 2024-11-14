@@ -127,19 +127,23 @@ def onclose():
     for (packet, dest) in packets:
         hip_socket.sendto(packet, dest)
 
-
 def hip_loop():
     while True:
-        try:
-            packet = bytearray(hip_socket.recv(1518))
-            logging.debug("Got HIP packet on the interface")
-            packets = hiplib.process_hip_packet(packet);
-            for (packet, dest) in packets:
-                hip_socket.sendto(packet, dest)
-        except Exception as e:
-            logging.debug("Exception occured while processing HIP packet")
-            logging.debug(e)
-            logging.debug(traceback.format_exc())
+        packet = bytearray(hip_socket.recv(1518));
+        hip_thread = threading.Thread(target = hip_thread_handler, args = (packet,));
+        logging.debug("happens")
+        hip_thread.start();
+
+def hip_thread_handler(packet):
+    try:
+        logging.debug("Got HIP packet on the interface");
+        packets = hiplib.process_hip_packet(packet);
+        for (packet, dest) in packets:
+            hip_socket.sendto(packet, dest)
+    except Exception as e:
+        logging.debug("Exception occured while processing HIP packet")
+        logging.debug(e)
+        logging.debug(traceback.format_exc())
 
 def ip_sec_loop():
     while True:
@@ -170,12 +174,16 @@ def ip_sec_loop():
 
 def ether_loop():
     while True:
+        buf = bytearray(ether_socket.recv(1518));
+        frame = Ethernet.EthernetFrame(buf);
+        ether_thread = threading.Thread(target = ether_thread_handler, args = (frame,));
+        ether_thread.start();
+
+def ether_thread_handler(frame):
         try:
             s = time()
-            buf = bytearray(ether_socket.recv(1518));
             e = time()
             #logging.info("Ethernet recv time %f " % (e-s))
-            frame = Ethernet.EthernetFrame(buf);
             dst_mac = frame.get_destination();
             src_mac = frame.get_source();
 
@@ -207,7 +215,6 @@ def ether_loop():
         except Exception as e:
            logging.debug("Exception occured while processing L2 frame")
            logging.debug(e)
-
 
 # Register exit handler
 atexit.register(onclose);
