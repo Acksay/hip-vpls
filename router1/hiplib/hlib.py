@@ -75,7 +75,7 @@ from hiplib.databases import resolver
 from hiplib.databases import Firewall
 # Utilities
 from hiplib.utils.misc import Utils
-from hiplib.crypto.ecbd import ECBD, ECBDV2
+from hiplib.crypto.ecbd import ECBD
 
 class HIPLib():
     def __init__(self, config):
@@ -150,7 +150,7 @@ class HIPLib():
         self.key_info_storage  = HIPState.Storage();
         self.esp_transform_storage = HIPState.Storage();
         self.hi_param_storage  = HIPState.Storage();
-        self.ecbd_storage = ECBDV2(self.id);
+        self.ecbd_storage = ECBD(self.id);
         #self.ecbd_storage.set_index(self.id);
 
         if self.config["general"]["rekey_after_packets"] > ((2<<32)-1):
@@ -419,19 +419,30 @@ class HIPLib():
                 for parameter in hip_packet.get_parameters():
                     if isinstance(parameter, HIP.ECBDParameter):
                         z_list = self.ecbd_storage.decode_public_list(parameter.get_public_value());
+                        self.ecbd_storage.add_z_list(z_list)
+
+                        if self.ecbd_storage.is_z_list_complete():
+                            logging.debug("COMPLETE COMPLETE COMPLETE COMPLETE")
+                            logging.info(self.ecbd_storage.z_list);
+                            x = self.ecbd_storage.compute_x();
+                            logging.debug("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+                            logging.info(x);
+                        else:
+                            logging.debug("Z-list:");
+                            logging.info(z_list);
+                            return []
+
+
+
                         #self.ecbd_storage.z_list[int(src_str[-1])-1] = self.ecbd_storage.decode_z_list(parameter.get_public_value());
                         #logging.debug("ECBD I1 received z list: %d ", z_list);
-                        logging.debug("Z-list:");
-                        logging.info(z_list);
-                        return []
                         #logging.debug(self.ecbd_storage.z_list);
                         #logging.debug("X-list:");
                         #logging.debug(self.ecbd_storage.x_list);
 
                 ecbd_param = HIP.ECBDParameter();
                 ecbd_param.set_group_id(4);
-                public_z = self.ecbd_storage.compute_public_z();
-                ecbd_param.add_public_value(Math.int_to_bytes(public_z));
+                ecbd_param.add_public_value(self.ecbd_storage.encode_z_list());
                 hip_r1_packet.add_parameter(ecbd_param);
 
                 # Swap the addresses
@@ -463,9 +474,9 @@ class HIPLib():
                 # Send the packet
                 dst_str = Utils.ipv4_bytes_to_string(dst);
                 response.append((bytearray(ipv4_packet.get_buffer()), (dst_str.strip(), 0)))
+
                 # Stay in current state
             elif hip_packet.get_packet_type() == HIP.HIP_R1_PACKET:
-                logging.info("----------------------------- R1 packet ----------------------------- ");
                 
                 # 1 0 1
                 # 1 1 1
@@ -965,10 +976,11 @@ class HIPLib():
                 logging.debug("R1 ECBD HERE HERE HERE HERE HERE HERE HERE HERE LOOK AT ME");
                 for parameter in hip_packet.get_parameters():
                     if isinstance(parameter, HIP.ECBDParameter):
-                        self.ecbd_storage.z_list[int(src_str[-1])-1] = Math.bytes_to_int(parameter.get_public_value());
-                        logging.debug("ECBD R1 public z key value: %d ", Math.bytes_to_int(parameter.get_public_value()));
+                        z_list = self.ecbd_storage.decode_public_list(parameter.get_public_value());
+
                         logging.debug("Z-list:");
                         logging.debug(self.ecbd_storage.z_list);
+                        """
                         public_x = self.ecbd_storage.compute_public_x();
                         ecbd_param = HIP.ECBDParameter();
                         ecbd_param.set_group_id(4);
@@ -976,6 +988,8 @@ class HIPLib():
                         hip_i2_packet.add_parameter(ecbd_param);
                         logging.debug("X-list:");
                         logging.debug(self.ecbd_storage.x_list);
+                        """
+                        return []
 
 
                 # Swap the addresses

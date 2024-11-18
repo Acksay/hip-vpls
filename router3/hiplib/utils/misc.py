@@ -116,7 +116,7 @@ class Math():
 
 			result = 0;
 			for i in range(len - 1, -1, -1):
-				result += bytes[id*len*2+1 + (len - 1) - i] << (8*i);
+				result += bytes[(id*2+1)*len + (len - 1) - i] << (8*i);
 			point.append(result)
 			
 			list.append(tuple(point))

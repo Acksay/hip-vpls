@@ -121,7 +121,6 @@ ether_socket.bind((hip_config.config["switch"]["l2interface"], 0))
 # Initialize FIB
 fib = FIB(hip_config.config["switch"]["mesh"])
 
-
 def onclose():
     packets = hiplib.exit_handler()
     for (packet, dest) in packets:

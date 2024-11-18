@@ -129,7 +129,7 @@ def onclose():
 
 def hip_loop():
     while True:
-        packet = bytearray(hip_socket.recv(1518));
+        packet = bytearray(hip_socket.recv(2500));
         hip_thread = threading.Thread(target = hip_thread_handler, args = (packet,));
         logging.debug("happens")
         hip_thread.start();
