@@ -442,8 +442,20 @@ class HIPLib():
 
                 ecbd_param = HIP.ECBDParameter();
                 ecbd_param.set_group_id(4);
-                ecbd_param.add_public_value(self.ecbd_storage.encode_z_list());
-                hip_r1_packet.add_parameter(ecbd_param);
+
+                ipv4_z_list = IPv4.IPv4Packet();
+                ipv4_z_list.set_version(IPv4.IPV4_VERSION);
+                ipv4_z_list.set_destination_address(dst);
+                ipv4_z_list.set_source_address(src);
+                ipv4_z_list.set_ttl(IPv4.IPV4_DEFAULT_TTL);
+                ipv4_z_list.set_protocol(HIP.HIP_PROTOCOL);
+                ipv4_z_list.set_ihl(IPv4.IPV4_IHL_NO_OPTIONS);
+                ipv4_z_list.set_fragment_offset(255);
+
+                ipv4_z_list.set_payload(self.ecbd_storage.encode_z_list());
+
+                #ecbd_param.add_public_value(self.ecbd_storage.encode_z_list());
+                #hip_r1_packet.add_parameter(ecbd_param);
 
                 # Swap the addresses
                 temp = src;
@@ -474,6 +486,8 @@ class HIPLib():
                 # Send the packet
                 dst_str = Utils.ipv4_bytes_to_string(dst);
                 response.append((bytearray(ipv4_packet.get_buffer()), (dst_str.strip(), 0)))
+
+                response.append((bytearray(ipv4_z_list.get_buffer()), (dst_str.strip(), 0)))
 
                 # Stay in current state
             elif hip_packet.get_packet_type() == HIP.HIP_R1_PACKET:
@@ -989,7 +1003,7 @@ class HIPLib():
                         logging.debug("X-list:");
                         logging.debug(self.ecbd_storage.x_list);
                         """
-                        return []
+                    return []
 
 
                 # Swap the addresses
@@ -1509,7 +1523,7 @@ class HIPLib():
                 #ecbd
                 ecbd_param = HIP.ECBDParameter();
                 ecbd_param.set_group_id(4);
-                public_x = self.ecbd_storage.compute_public_x();
+                #public_x = self.ecbd_storage.compute_public_x();
                 ecbd_param.add_public_value(Math.int_to_bytes(public_x));
                 hip_r2_packet.add_parameter(ecbd_param);
                 
