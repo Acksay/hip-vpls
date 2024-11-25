@@ -48,12 +48,12 @@ class ECBD:
         return k
     
     def _encode_public_list(self, public_list):
-        return b"".join([b"".join([misc.Math.int_to_bytes_with_len(z[0], 128), 
-                 misc.Math.int_to_bytes_with_len(z[1], 128)])
-                for z in public_list])
+        return [b"".join([misc.Math.int_to_bytes_with_len(z[0], 128), 
+                misc.Math.int_to_bytes_with_len(z[1], 128)])
+                for z in public_list]
 
     def decode_public_list(self, bytes):
-        return misc.Math.bytes_to_int_list(bytes, 128, 4)
+        return misc.Math.bytes_to_int_list(bytes, 128, len(bytes)//256)
     
     def encode_z_list(self):
         return self._encode_public_list(self.z_list)

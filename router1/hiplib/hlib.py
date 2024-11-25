@@ -16,6 +16,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from time import sleep
 
+from numpy import indices
+
 __author__ = "Dmitriy Kuptsov"
 __copyright__ = "Copyright 2020, strangebit"
 __license__ = "GPL"
@@ -164,7 +166,7 @@ class HIPLib():
         logging.info("Using hosts file to resolve HITS %s" % (self.config["resolver"]["hosts_file"]));
         self.hit_resolver.load_records(filename = self.config["resolver"]["hosts_file"]);
         
-    def process_hip_packet(self, packet):
+    def process_hip_packet(self, packet, ecbd_points):
         try:
             response = [];
             # IP reassmebly is done automatically so we can read large enough packets
@@ -232,10 +234,13 @@ class HIPLib():
 
                 """
                 TODO This is most likely bad :)
+                """
+                logging.debug("I1 packet from {}".format(src_str));
                 if hip_state.is_i1_sent() and Utils.is_hit_smaller(rhit, ihit):
                     logging.debug("Staying in I1-SENT state");
                     return [];
-                """
+                
+                
 
                 sv = None
                 
@@ -413,49 +418,22 @@ class HIPLib():
                 hip_r1_packet.add_parameter(transport_param);
                 hip_r1_packet.add_parameter(signature_param);
 
-                #ecbd
-                logging.debug("I1 ECBD HERE HERE HERE HERE HERE HERE HERE HERE LOOK AT ME");
-                logging.debug("from " + src_str);
-                for parameter in hip_packet.get_parameters():
-                    if isinstance(parameter, HIP.ECBDParameter):
-                        z_list = self.ecbd_storage.decode_public_list(parameter.get_public_value());
-                        self.ecbd_storage.add_z_list(z_list)
+                """
+                    Parse the received z values and add them to our list.
+                """
+                #logging.debug("I1 ECBD HERE HERE HERE HERE HERE HERE HERE HERE LOOK AT ME");
+                #logging.debug("from " + src_str);
+                z_list_raw, indicies = zip(*ecbd_points);
+                z_list_decoded = []
+                for point in z_list_raw:
+                    # We get a list back cause we used to store the entire list, this is fucked for us now
+                    # change it now.
+                    z_list_decoded.append(self.ecbd_storage.decode_public_list(point)[0]);
 
-                        if self.ecbd_storage.is_z_list_complete():
-                            logging.debug("COMPLETE COMPLETE COMPLETE COMPLETE")
-                            logging.info(self.ecbd_storage.z_list);
-                            x = self.ecbd_storage.compute_x();
-                            logging.debug("XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-                            logging.info(x);
-                        else:
-                            logging.debug("Z-list:");
-                            logging.info(z_list);
-                            return []
-
-
-
-                        #self.ecbd_storage.z_list[int(src_str[-1])-1] = self.ecbd_storage.decode_z_list(parameter.get_public_value());
-                        #logging.debug("ECBD I1 received z list: %d ", z_list);
-                        #logging.debug(self.ecbd_storage.z_list);
-                        #logging.debug("X-list:");
-                        #logging.debug(self.ecbd_storage.x_list);
-
-                ecbd_param = HIP.ECBDParameter();
-                ecbd_param.set_group_id(4);
-
-                ipv4_z_list = IPv4.IPv4Packet();
-                ipv4_z_list.set_version(IPv4.IPV4_VERSION);
-                ipv4_z_list.set_destination_address(dst);
-                ipv4_z_list.set_source_address(src);
-                ipv4_z_list.set_ttl(IPv4.IPV4_DEFAULT_TTL);
-                ipv4_z_list.set_protocol(HIP.HIP_PROTOCOL);
-                ipv4_z_list.set_ihl(IPv4.IPV4_IHL_NO_OPTIONS);
-                ipv4_z_list.set_fragment_offset(255);
-
-                ipv4_z_list.set_payload(self.ecbd_storage.encode_z_list());
-
-                #ecbd_param.add_public_value(self.ecbd_storage.encode_z_list());
-                #hip_r1_packet.add_parameter(ecbd_param);
+                for i, p in zip(indicies, z_list_decoded):
+                    self.ecbd_storage.z_list[i] = p;
+                
+                #logging.debug("Z-LIST: {}".format(self.ecbd_storage.z_list));
 
                 # Swap the addresses
                 temp = src;
@@ -474,6 +452,13 @@ class HIPLib():
                 ipv4_packet.set_protocol(HIP.HIP_PROTOCOL);
                 ipv4_packet.set_ihl(IPv4.IPV4_IHL_NO_OPTIONS);
 
+                # Add fragment param
+                frag_param = HIP.FragmentParameter();
+                frag_param.add_packet_id(self.id.to_bytes(64, "little"));
+                frag_param.add_fragment_id((0).to_bytes(64, "little"));
+                frag_param.add_fragment_mf(b"\x00")
+                hip_r1_packet.add_parameter(frag_param);
+
                 # Calculate the checksum
                 checksum = Utils.hip_ipv4_checksum(
                     src, 
@@ -485,24 +470,29 @@ class HIPLib():
                 ipv4_packet.set_payload(hip_r1_packet.get_buffer());
                 # Send the packet
                 dst_str = Utils.ipv4_bytes_to_string(dst);
+
+                fragments = self.fragment_ec_list(self.ecbd_storage.z_list, src, dst, ihit, rhit, self.id);
+
                 response.append((bytearray(ipv4_packet.get_buffer()), (dst_str.strip(), 0)))
 
-                response.append((bytearray(ipv4_z_list.get_buffer()), (dst_str.strip(), 0)))
+                for frag in fragments:
+                    response.append((bytearray(frag.get_buffer()), (dst_str.strip(), 0)))
 
                 # Stay in current state
             elif hip_packet.get_packet_type() == HIP.HIP_R1_PACKET:
+                logging.info("---------------------------- R1 packet ---------------------------- ");
                 
                 # 1 0 1
                 # 1 1 1
                 """
                 TODO this is bad :)
+                """
                 if (hip_state.is_unassociated() 
                     or hip_state.is_r2_sent() 
                     or hip_state.is_established()
                     or hip_state.is_failed()):
                     logging.debug("Dropping packet... Invalid state");
                     return [];
-                """
 
                 if Utils.is_hit_smaller(rhit, ihit):
                     sv = self.state_variables.get(Utils.ipv6_bytes_to_hex_formatted(rhit),
@@ -620,12 +610,12 @@ class HIPLib():
                             raise Exception("Invalid destination HIT")
                             
                         oga = HIT.get_responders_oga_id(ihit);
-                        logging.debug("Responder's OGA ID %d" % (oga));
+                        #logging.debug("Responder's OGA ID %d" % (oga));
                         #logging.debug(bytearray(responder_hi.to_byte_array()));
                         responders_hit = HIT.get(responder_hi.to_byte_array(), oga);
-                        logging.debug(list(responders_hit))
-                        logging.debug(list(ihit))
-                        logging.debug(list(self.own_hit))
+                        #logging.debug(list(responders_hit))
+                        #logging.debug(list(ihit))
+                        #logging.debug(list(self.own_hit))
                         if not Utils.hits_equal(ihit, responders_hit):
                             logging.critical("Invalid HIT");
                             raise Exception("Invalid HIT");
@@ -710,7 +700,7 @@ class HIPLib():
                 
                 start_time = time.time();
                 jrandom = PuzzleSolver.solve_puzzle(irandom, hip_packet.get_receivers_hit(), hip_packet.get_senders_hit(), puzzle_param.get_k_value(), r_hash)
-                logging.debug("Puzzle was solved and verified....");
+                #logging.debug("Puzzle was solved and verified....");
                 end_time = time.time();
                 if (end_time - start_time) > (2 << (puzzle_param.get_lifetime() - 32)):
                     logging.critical("Maximum time to solve the puzzle exceeded. Dropping the packet...");
@@ -986,25 +976,11 @@ class HIPLib():
                 for unsigned_param in echo_unsigned:
                     hip_i2_packet.add_parameter(unsigned_param);
 
-                #ecbd 
-                logging.debug("R1 ECBD HERE HERE HERE HERE HERE HERE HERE HERE LOOK AT ME");
-                for parameter in hip_packet.get_parameters():
-                    if isinstance(parameter, HIP.ECBDParameter):
-                        z_list = self.ecbd_storage.decode_public_list(parameter.get_public_value());
-
-                        logging.debug("Z-list:");
-                        logging.debug(self.ecbd_storage.z_list);
-                        """
-                        public_x = self.ecbd_storage.compute_public_x();
-                        ecbd_param = HIP.ECBDParameter();
-                        ecbd_param.set_group_id(4);
-                        ecbd_param.add_public_value(Math.int_to_bytes(public_x));
-                        hip_i2_packet.add_parameter(ecbd_param);
-                        logging.debug("X-list:");
-                        logging.debug(self.ecbd_storage.x_list);
-                        """
-                    return []
-
+                frag_param = HIP.FragmentParameter();
+                frag_param.add_packet_id(self.id.to_bytes(64, "little"));
+                frag_param.add_fragment_id((0).to_bytes(64, "little"));
+                frag_param.add_fragment_mf(b"\x00")
+                hip_i2_packet.add_parameter(frag_param);
 
                 # Swap the addresses
                 temp = src;
@@ -1022,10 +998,6 @@ class HIPLib():
 
                 buf = hip_i2_packet.get_buffer();
                 
-                total_length = len(buf);
-                fragment_len = HIP.HIP_FRAGMENT_LENGTH;
-                num_of_fragments = int(ceil(total_length / fragment_len))
-                offset = 0;
                 # Create IPv4 packet
                 ipv4_packet = IPv4.IPv4Packet();
                 ipv4_packet.set_version(IPv4.IPV4_VERSION);
@@ -1043,6 +1015,12 @@ class HIPLib():
                 logging.debug("Sending I2 packet to %s %d" % (dst_str, len(ipv4_packet.get_buffer())));
                 response.append((bytearray(ipv4_packet.get_buffer()), (dst_str.strip(), 0)))
 
+                # Add fragments
+                fragments = self.fragment_ec_list(self.ecbd_storage.z_list, src, dst, ihit, rhit, self.id);
+
+                for frag in fragments:
+                    response.append((bytearray(frag.get_buffer()), (dst_str.strip(), 0)))
+
                 if Utils.is_hit_smaller(rhit, ihit):
                     sv = self.state_variables.get(Utils.ipv6_bytes_to_hex_formatted(rhit),
                         Utils.ipv6_bytes_to_hex_formatted(ihit));
@@ -1057,12 +1035,11 @@ class HIPLib():
                 logging.info("---------------------------- I2 packet ---------------------------- ");
                 st = time.time();
                 
-                """
-                TODO this is probably bad :)
+                #TODO this is probably bad :)
                 if hip_state.is_i2_sent() and Utils.is_hit_smaller(rhit, ihit):
                     logging.debug("Staying in I2-SENT state. Dropping the packet...");
                     return [];
-                """
+                return []
             
                 if Utils.is_hit_smaller(rhit, ihit):
                     sv = self.state_variables.get(Utils.ipv6_bytes_to_hex_formatted(rhit),
@@ -2633,7 +2610,7 @@ class HIPLib():
                 src = Math.int_to_bytes(
                     Utils.ipv4_to_int(src_str));
                 
-                logging.info("src: {}, dst: {}".format(src_str, dst_str))
+                #logging.info("src: {}, dst: {}".format(src_str, dst_str))
 
                 st = time.time();
                 # Construct the DH groups parameter
@@ -2648,16 +2625,14 @@ class HIPLib():
                 hip_i1_packet.set_version(HIP.HIP_VERSION);
                 hip_i1_packet.add_parameter(dh_groups_param);
 
-                #ecbd
-                ecbd_param = HIP.ECBDParameter();
-                ecbd_param.set_group_id(4);
-                public_z = self.ecbd_storage.get_z();
-                #ecbd_param.add_public_value(Math.int_to_bytes(public_z))
-                #ecbd_param.add_public_value(b"".join(b"1" for i in range(256)))
-                ecbd_param.add_public_value(self.ecbd_storage.encode_z_list());
-
-                hip_i1_packet.add_parameter(ecbd_param);
+                # Add fragment param to I1 packet
                 hip_i1_packet.add_parameter(dh_groups_param);
+                frag_param = HIP.FragmentParameter();
+                frag_param.add_packet_id(self.id.to_bytes(64, "little"));
+                frag_param.add_fragment_id((0).to_bytes(64, "little"));
+                frag_param.add_fragment_mf(b"\x00")
+                hip_i1_packet.add_parameter(frag_param);
+
 
                 # Compute the checksum of HIP packet
                 checksum = Utils.hip_ipv4_checksum(
@@ -2667,7 +2642,6 @@ class HIPLib():
                     hip_i1_packet.get_length() * 8 + 8, 
                     hip_i1_packet.get_buffer());
                 hip_i1_packet.set_checksum(checksum);
-
 
                 # Construct the IPv4 packet
                 ipv4_packet = IPv4.IPv4Packet();
@@ -2680,9 +2654,20 @@ class HIPLib():
                 ipv4_packet.set_payload(hip_i1_packet.get_buffer());
 
                 # Send HIP I1 packet to destination
-                logging.debug("Sending I1 packet to %s %f" % (dst_str, time.time() - st));
+                #logging.debug("Sending I1 packet to %s %f" % (dst_str, time.time() - st));
                 #hip_socket.sendto(bytearray(ipv4_packet.get_buffer()), (dst_str.strip(), 0));
                 response.append((True, bytearray(ipv4_packet.get_buffer()), (dst_str.strip(), 0)))
+
+                z_list = self.ecbd_storage.z_list;
+                fragments = self.fragment_ec_list(
+                    z_list, 
+                    src, dst, 
+                    ihit, rhit, 
+                    self.id
+                );
+
+                for frag in fragments:
+                    response.append((True, bytearray(frag.get_buffer()), (dst_str.strip(), 0)))
                 # Transition to an I1-Sent state
                 hip_state.i1_sent();
 
@@ -2812,6 +2797,54 @@ class HIPLib():
             logging.critical(e, exc_info=True);
             traceback.print_exc()
         return [];
+    
+    def fragment_ec_list(self, points, src, dst, ihit, rhit, id):
+        """
+            Returns a collection of HIP fragments containing a list of points
+            on an eliptic curve which must be reassembled by the receiver.
+        """
+        indices, points = zip(*[p for p in enumerate(points) if p[1] != (0, 0)]);
+        encoded_points = self.ecbd_storage._encode_public_list(points);
+
+        fragments = [];
+        for i in range(len(points)):
+            # Create HIP packet
+            hip_frag = HIP.I1Packet()
+            hip_frag.set_senders_hit(ihit);
+            hip_frag.set_receivers_hit(rhit);
+            hip_frag.set_next_header(HIP.HIP_IPPROTO_NONE);
+            hip_frag.set_version(HIP.HIP_VERSION);
+
+            # Add fragmentation parameter
+            frag_param = HIP.FragmentParameter();
+            frag_param.add_packet_id(id.to_bytes(64, "little"))
+            frag_param.add_fragment_id((i+1).to_bytes(64, "little"))
+            if i < (len(points)-1):
+                frag_param.add_fragment_mf(b"\x00");
+            else:
+                frag_param.add_fragment_mf(b"\x01");
+            hip_frag.add_parameter(frag_param);
+            
+            # Add ECBD parameter
+            ecbd_param = HIP.ECBDParameter();
+            ecbd_param.set_group_id(indices[i]);
+            encoded_point = encoded_points[i]
+            ecbd_param.add_public_value(encoded_point);
+            hip_frag.add_parameter(ecbd_param);
+
+            # Create IPv4 packet
+            ip_frag = IPv4.IPv4Packet();
+            ip_frag.set_version(IPv4.IPV4_VERSION);
+            ip_frag.set_destination_address(dst);
+            ip_frag.set_source_address(src);
+            ip_frag.set_ttl(IPv4.IPV4_DEFAULT_TTL);
+            ip_frag.set_protocol(HIP.HIP_PROTOCOL);
+            ip_frag.set_ihl(IPv4.IPV4_IHL_NO_OPTIONS);
+
+            ip_frag.set_payload(hip_frag.get_buffer());
+            fragments.append(ip_frag);
+
+        return fragments;
 
     def exit_handler(self):
         response = []

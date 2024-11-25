@@ -126,23 +126,104 @@ def onclose():
         hip_socket.sendto(packet, dest)
 
 def hip_loop():
+    hip_packets = {}
     while True:
         try:
-            packet = bytearray(hip_socket.recv(1518));
-            logging.debug("Got HIP packet on the interface");
-            packets = hiplib.process_hip_packet(packet);
+            hip_packet, hip_packets = receive_hip_packet(hip_packets);
+            #logging.debug("Got HIP packet on the interface");
+
+            head = hip_packet.fragments[0][0];
+
+            packets = hiplib.process_hip_packet(head, hip_packet.points);
+            del hip_packets[hip_packet.packet_id];
+
             for (packet, dest) in packets:
-                ipv4_packet = IPv4.IPv4Packet(packet)
-                logging.info(ipv4_packet)
-                logging.info(ipv4_packet)
-                logging.info(ipv4_packet)
-                logging.info(ipv4_packet)
-                logging.info(ipv4_packet)
                 hip_socket.sendto(packet, dest)
+
         except Exception as e:
-            logging.debug("Exception occured while processing HIP packet")
+            logging.debug("Exception occurred while processing HIP packet")
             logging.debug(e)
             logging.debug(traceback.format_exc())
+
+class HIPFragments:
+    """
+        Simple class to keep track of a HIP-packet being
+        reassembled (aka a list of fragments).
+    """
+    def __init__(self, packet_id):
+        self.fragments = [];
+        self.points = [];
+        self.final_index = -1;
+        self.packet_id = packet_id;
+    
+    def add_fragment(self, buffer, index, point = None):
+        self.fragments.append((buffer, index));
+        self.fragments.sort(key = lambda fragment: fragment[1]);
+
+        if point != None:
+            self.points.append(point);
+
+    def set_final_id(self, index):
+        self.final_index = index;
+    
+    def is_reassembled(self):
+        if self.final_index == -1:
+            # Final fragment hasn't been added yet.
+            return False;
+
+        for i in range(self.final_index):
+            if self.fragments[i][1] != i:
+                return False;
+        return True;
+    
+    def get_fragments(self):
+        return [fragment[0] for fragment in self.fragments];
+
+def receive_hip_packet(hip_packets):
+    """
+        Perform manual packet reassembly.
+    """
+    while True:
+        raw_fragment = bytearray(hip_socket.recv(1518));
+        ipv4_fragment = IPv4.IPv4Packet(raw_fragment);
+        hip_fragment = HIP.HIPPacket(ipv4_fragment.get_payload());
+
+        """
+            Get the fragment and ECBD parameters.
+        """
+        packet_id = frag_id = mf_flag = -1;
+        point = None;
+        point_id = -1;
+        for parameter in hip_fragment.get_parameters():
+            if isinstance(parameter, HIP.FragmentParameter):
+                packet_id, frag_id, mf_flag = (
+                    parameter.get_packet_id(),
+                    parameter.get_fragment_id(),
+                    parameter.get_fragment_mf()
+                );
+            if isinstance(parameter, HIP.ECBDParameter):
+                # Group id is used as point_id for now this is ugly fix later :)
+                point_id = parameter.get_group_id();
+                point = parameter.get_public_value();
+
+        # Ignore any HIP packets that aren't fragmented
+        if packet_id == -1 or frag_id == -1 or mf_flag == -1:
+            continue;
+        if not packet_id in hip_packets:
+            hip_packets[packet_id] = HIPFragments(packet_id);
+        
+        # Add the ECBD parameter if we found it (means this is not the first fragment)
+        if point != None: 
+            hip_packets[packet_id].add_fragment(raw_fragment, frag_id, (point, point_id));
+        else:
+            hip_packets[packet_id].add_fragment(raw_fragment, frag_id);
+
+        # Check if this is the last fragment (last as in order not time!)
+        if mf_flag:
+            hip_packets[packet_id].set_final_id(frag_id);
+
+        if hip_packets[packet_id].is_reassembled():
+            return hip_packets[packet_id], hip_packets;
 
 def ip_sec_loop():
     while True:

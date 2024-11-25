@@ -46,7 +46,6 @@ HIP_TLV_LENGTH                   = 0x4;
 
 HIP_DEFAULT_PACKET_LENGTH        = 0x4;
 
-HIP_FRAGMENT_LENGTH              = 0x578;
 
 class HIPParameter():
 	def __init__(self, buffer = None):
@@ -1198,6 +1197,8 @@ class HIPPacket():
 				parameters.append(EchoResponseSignedParameter(param_data));
 			elif param_type == HIP_ECHO_RESPONSE_UNSIGNED_TYPE:
 				parameters.append(EchoResponseUnsignedParameter(param_data));
+			elif param_type == HIP_FRAGMENT_TYPE:
+				parameters.append(FragmentParameter(param_data));
 			offset += total_param_length;
 			if offset >= length:
 				has_more_parameters = False;
@@ -1205,6 +1206,42 @@ class HIPPacket():
 
 	def get_buffer(self):
 		return self.buffer;
+
+HIP_FRAGMENT_TYPE = 0x203;
+HIP_FRAGMENT_PACKET_ID_OFFSET = 0x4;
+HIP_FRAGMENT_FRAGMENT_ID_OFFSET = 0x100;
+HIP_FRAGMENT_MF_OFFSET = 0x200;
+class FragmentParameter(HIPParameter):
+	def __init__(self, buffer = None):
+		self.buffer = buffer;
+		if not self.buffer:
+			self.buffer = bytearray([0] * (
+				HIP_TLV_LENGTH_LENGTH + 
+				HIP_TLV_TYPE_LENGTH
+				));
+			self.set_type(HIP_FRAGMENT_TYPE);
+			self.set_length(0);
+	def add_packet_id(self, id):
+		self.set_length(HIP_FRAGMENT_FRAGMENT_ID_OFFSET);
+		self.buffer += id;
+		padding = HIP_FRAGMENT_FRAGMENT_ID_OFFSET - len(self.buffer);
+		self.buffer += bytearray([0] * padding);
+	def get_packet_id(self):
+		return int.from_bytes(self.buffer[HIP_FRAGMENT_PACKET_ID_OFFSET:HIP_FRAGMENT_FRAGMENT_ID_OFFSET], "little");
+	def add_fragment_id(self, id):
+		self.set_length(HIP_FRAGMENT_MF_OFFSET);
+		self.buffer += id;
+		padding = HIP_FRAGMENT_MF_OFFSET - len(self.buffer);
+		self.buffer += bytearray([0] * padding);
+	def get_fragment_id(self):
+		return int.from_bytes(self.buffer[HIP_FRAGMENT_FRAGMENT_ID_OFFSET:HIP_FRAGMENT_MF_OFFSET], "little");
+	def add_fragment_mf(self, val):
+		self.set_length(HIP_FRAGMENT_MF_OFFSET+1);
+		self.buffer += val;
+		padding = (8 - len(self.buffer) % 8) % 8;
+		self.buffer += bytearray([0] * padding);
+	def get_fragment_mf(self):
+		return int.from_bytes(self.buffer[HIP_FRAGMENT_MF_OFFSET:], "little");
 
 class I1Packet(HIPPacket):
 	def __init__(self, buffer = None):
