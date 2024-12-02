@@ -47,14 +47,19 @@ Base exchange should complete its execution in a few seconds.
 Once BEX is done, you should be able to ping h2 from h1 as follows (from the mininet):
 
 ```
-mininet> h1 ping h2
+mininet> hu1 ping hu2
 ```
 
 You can view the progress of the BEX and other interaction in the logs:
 
 ```
-$ tail -f router1/hipls.log
+$ tail -f spoke1/hipls.log
 ```
+or
+```
+$ tail -f hub1/hipls.log
+```
+etc.
 
 Other useful commands:
 
@@ -66,7 +71,7 @@ mininet> s4 ovs-ofctl show "s4"
 Capture the packets between HIP switches:
 
 ```
-minenet > r2 tcpdump -n -i r2-eth1 -w ipsec.pcap
+minenet > hu2 tcpdump -n -i hu2-eth1 -w ipsec.pcap
 ```
 
 
