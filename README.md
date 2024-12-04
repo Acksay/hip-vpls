@@ -24,7 +24,7 @@ connecting hosts and routers. There are also four hosts that are agnostic about 
 First clone the repository:
 ```
 $ cd ~
-$ git clone https://github.com/strangebit-io/hip-vpls.git
+$ git clone https://github.com/Acksay/hip-vpls.git
 ```
 
 After this step is done you can deploy the topology:
@@ -44,7 +44,7 @@ $ sudo python3 hipls-mn.py
 
 Base exchange should complete its execution in a few seconds. 
 
-Once BEX is done, you should be able to ping h2 from h1 as follows (from the mininet):
+Once BEX is done, you should be able to ping hu2 from hu1 as follows (from the mininet):
 
 ```
 mininet> hu1 ping hu2
@@ -65,13 +65,13 @@ Other useful commands:
 
 View ports' statuses
 ```
-mininet> s4 ovs-ofctl show "s4"
+mininet> sw4 ovs-ofctl show "sw4"
 ```
 
 Capture the packets between HIP switches:
 
 ```
-minenet > hu2 tcpdump -n -i hu2-eth1 -w ipsec.pcap
+mininet > hu2 tcpdump -n -i hu2-eth1 -w ipsec.pcap
 ```
 
 
