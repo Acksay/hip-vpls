@@ -18,8 +18,8 @@ We are going to test the implementation using Mininet simulation environment.
 
 # Usage
 
-At the moment the setup is simple. We have four routers, which form the HIP VPLS and five switches
-connecting hosts and routers. There are also four hosts that are agnostic about the topology used.
+At the moment the setup is simple. We have three hubs, three spokes which form the HIP VPLS and four switches
+connecting hubs and spokes.
 
 First clone the repository:
 ```
