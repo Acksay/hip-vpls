@@ -11,6 +11,7 @@ class ECBD:
     def __init__(self, id):
         self.nr_of_participants = 6
         self.private_key = random.randint(0, curve.n-1)
+        self.participant_hits = [0] * self.nr_of_participants
         self.id = id
         self.z_list = [(0, 0)]*self.nr_of_participants
         self.x_list = [(0, 0)]*self.nr_of_participants

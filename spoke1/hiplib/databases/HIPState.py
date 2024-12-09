@@ -20,7 +20,6 @@
 import time
 # Utilities
 
-
 HIP_STATE_UNASSOCIATED = 0x0;
 HIP_STATE_I1_SENT      = 0x1;
 HIP_STATE_I2_SENT      = 0x2;

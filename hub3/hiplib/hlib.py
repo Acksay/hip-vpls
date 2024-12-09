@@ -90,6 +90,8 @@ class HIPLib():
         self.id = int(self.ip_addr.split(".")[-1])-1;
         self.MTU = self.config["network"]["mtu"];
 
+
+
         self.firewall = Firewall.BasicFirewall();
         self.firewall.load_rules(self.config["firewall"]["rules_file"])
 
@@ -157,8 +159,10 @@ class HIPLib():
         self.esp_transform_storage = HIPState.Storage();
         self.hi_param_storage  = HIPState.Storage();
         self.ecbd_storage = ECBD(self.id);
+        self.ecbd_keymat_storage = None;
         self.spokes_response = [];
         self.hubs_response = [];
+
         #self.ecbd_storage.set_index(self.id);
 
         if self.config["general"]["rekey_after_packets"] > ((2<<32)-1):
@@ -259,15 +263,17 @@ class HIPLib():
                 #logging.debug("I1 ECBD HERE HERE HERE HERE HERE HERE HERE HERE LOOK AT ME");
                 #logging.debug("from " + src_str);
                 if ecbd_points:
-                    z_list_raw, indicies = zip(*ecbd_points);
+                    z_list_raw, indicies, sender_hits = zip(*ecbd_points);
                     z_list_decoded = []
                     for point in z_list_raw:
                         # We get a list back cause we used to store the entire list, this is fucked for us now
                         # change it now.
                         z_list_decoded.append(self.ecbd_storage.decode_public_list(point)[0]);
 
-                    for i, p in zip(indicies, z_list_decoded):
+                    for i, p, shit in zip(indicies, z_list_decoded, sender_hits):
                         self.ecbd_storage.z_list[i] = p;
+                        self.ecbd_storage.participant_hits[i] = shit;
+
                     
                     #logging.debug("Z-LIST: {}".format(self.ecbd_storage.z_list));
                 
@@ -582,15 +588,16 @@ class HIPLib():
                 oga = HIT.get_responders_oga_id(ihit);
 
                 # Add fragments
-                z_list_raw, indicies = zip(*ecbd_points);
+                z_list_raw, indicies, sender_hits = zip(*ecbd_points);
                 z_list_decoded = []
                 for point in z_list_raw:
                     # We get a list back cause we used to store the entire list, this is fucked for us now
                     # change it now.
                     z_list_decoded.append(self.ecbd_storage.decode_public_list(point)[0]);
 
-                for i, p in zip(indicies, z_list_decoded):
+                for i, p, shit in zip(indicies, z_list_decoded, sender_hits):
                     self.ecbd_storage.z_list[i] = p;
+                    self.ecbd_storage.participant_hits[i] = shit;
                 
 
                 if (oga << 4) not in self.config["security"]["supported_hit_suits"]:
@@ -830,6 +837,7 @@ class HIPLib():
                 public_key_i = dh.generate_public_key();
                 public_key_r = dh.decode_public_key(dh_param.get_public_value());
                 shared_secret = dh.compute_shared_secret(public_key_r);
+
                 if not self.dh_storage.get(r1_counter_param.get_counter(), None):
                     self.dh_storage[r1_counter_param.get_counter()] = HIPState.Storage()
                 self.dh_storage[r1_counter_param.get_counter()].save(Utils.ipv6_bytes_to_hex_formatted(ihit), 
@@ -893,6 +901,8 @@ class HIPLib():
                         Utils.ipv6_bytes_to_hex_formatted(rhit), selected_cipher);
                 keymat_length_in_octets = Utils.compute_keymat_length(hmac_alg, selected_cipher);
                 keymat = Utils.kdf(hmac_alg, salt, Math.int_to_bytes(shared_secret), info, keymat_length_in_octets);
+                self.ecbd_keymat_storage = Utils.kdf(hmac_alg, salt, Math.int_to_bytes(1), info, 0x100);
+
                 self.keymat_storage.save(Utils.ipv6_bytes_to_hex_formatted(rhit), 
                     Utils.ipv6_bytes_to_hex_formatted(ihit), keymat);
                 #logging.debug("Saving keying material in R1 %s %s" % (dst_str, src_str))
@@ -964,7 +974,7 @@ class HIPLib():
                 buf = hip_i2_packet.get_buffer() + buf;
                 # R1 packet incomming, IHIT - sender (Initiator), RHIT - own HIT (responder)
                 # From this two we need to choose
-                (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, selected_cipher, rhit, ihit);
+                (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, selected_cipher, rhit, ihit);
                 hmac = HMACFactory.get(hmac_alg, hmac_key);
                 mac_param.set_hmac(hmac.digest(bytearray(buf)));
 
@@ -1339,11 +1349,26 @@ class HIPLib():
                     return [];
                 #logging.debug("Puzzle was solved");
 
+                x_list_raw, indicies, sender_hits = zip(*ecbd_points);
+                x_list_decoded = []
+                for point in x_list_raw:
+                    # We get a list back cause we used to store the entire list, this is fucked for us now
+                    # change it now.
+                    x_list_decoded.append(self.ecbd_storage.decode_public_list(point)[0]);
+
+                for i, p, shit in zip(indicies, x_list_decoded, sender_hits):
+                    self.ecbd_storage.x_list[i] = p;
+                    self.ecbd_storage.participant_hits[i] = shit;
+
                 dh = self.dh_storage[r1_counter_param.get_counter()].get(Utils.ipv6_bytes_to_hex_formatted(ihit), 
                     Utils.ipv6_bytes_to_hex_formatted(rhit));
 
+                # HERE HERE HERE SHARED SECRET I2
                 public_key_r = dh.decode_public_key(dh_param.get_public_value());
                 shared_secret = dh.compute_shared_secret(public_key_r);
+
+                #if self.ecbd_storage.is_key_computed():
+                #    shared_secret = self.ecbd_storage.key[0];
 
                 info = Utils.sort_hits(ihit, rhit);
                 salt = irandom + jrandom;
@@ -1382,11 +1407,12 @@ class HIPLib():
                 initiators_keymat_index = esp_info_param.get_keymat_index();
 
                 keymat_length_in_octets = Utils.compute_keymat_length(hmac_alg, selected_cipher);
-                keymat = Utils.kdf(hmac_alg, salt, Math.int_to_bytes(shared_secret), info, keymat_length_in_octets);
-
+                # HERE HERE HERE KEYMAT I28
+                keymat = Utils.kdf(hmac_alg, salt, Math.int_to_bytes(1), info, keymat_length_in_octets);
+                self.ecbd_keymat_storage = Utils.kdf(hmac_alg, salt, Math.int_to_bytes(1), info, 0x100);
                 self.keymat_storage.save(Utils.ipv6_bytes_to_hex_formatted(ihit), 
                 	Utils.ipv6_bytes_to_hex_formatted(rhit), keymat);
-                
+
                 #logging.debug("Saving keying material in I2 %s %s" % (dst_str, src_str))
 
                 if Utils.is_hit_smaller(rhit, ihit):
@@ -1400,7 +1426,7 @@ class HIPLib():
 
                 if encrypted_param:
                     # I2 packet incomming, IHIT - sender (Initiator), RHIT - own HIT (responder)
-                    (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, selected_cipher, ihit, rhit);
+                    (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, selected_cipher, ihit, rhit);
                     cipher = SymmetricCiphersFactory.get(selected_cipher);
                     iv_length = cipher.BLOCK_SIZE;
                     iv = encrypted_param.get_iv(iv_length);
@@ -1471,7 +1497,7 @@ class HIPLib():
                 buf = hip_i2_packet.get_buffer() + buf;
                 
                 # I2 packet incomming, IHIT - sender (Initiator), RHIT - own HIT (responder)
-                (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, selected_cipher, ihit, rhit);
+                (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, selected_cipher, ihit, rhit);
                 hmac = HMACFactory.get(hmac_alg, hmac_key);
 
                 """
@@ -1549,7 +1575,7 @@ class HIPLib():
                 hip_r2_packet.add_parameter(esp_info_param);
 
                 # R2 packet outgoing, IHIT - sender (Initiator), RHIT - own HIT (responder), IHIT - 1, RHIT - 2
-                (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, selected_cipher, rhit, ihit);
+                (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, selected_cipher, rhit, ihit);
                 hmac = HMACFactory.get(hmac_alg, hmac_key);
 
                 hip_r2_packet.add_parameter(self.own_hi_param)
@@ -1640,15 +1666,6 @@ class HIPLib():
                     or hip_state.is_closed()):
                     hip_state.r2_sent();
 
-                    x_list_raw, indicies = zip(*ecbd_points);
-                    x_list_decoded = []
-                    for point in x_list_raw:
-                        # We get a list back cause we used to store the entire list, this is fucked for us now
-                        # change it now.
-                        x_list_decoded.append(self.ecbd_storage.decode_public_list(point)[0]);
-
-                    for i, p in zip(indicies, x_list_decoded):
-                        self.ecbd_storage.x_list[i] = p;
 
                     hit1 = Utils.ipv6_bytes_to_hex_formatted_resolver(ihit);
                     if hit1 in self.spokes:
@@ -1733,7 +1750,7 @@ class HIPLib():
                 # THen we should pass the larger (or own) HIT first
                 #if Utils.is_hit_smaller(ihit, rhit):
                 (cipher_key, hmac_key) = Utils.get_keys_esp(
-                        keymat,
+                        self.ecbd_keymat_storage,
                         keymat_index, 
                         hmac.ALG_ID, 
                         cipher.ALG_ID,
@@ -1767,7 +1784,7 @@ class HIPLib():
                 # If OWN HIT is smaller then we SHOULD use the first key 
                 # THen we should pass the larger (or own) HIT first
                 (cipher_key, hmac_key) = Utils.get_keys_esp(
-                    keymat,
+                    self.ecbd_keymat_storage,
                     keymat_index, 
                     hmac.ALG_ID, 
                     cipher.ALG_ID,
@@ -1804,15 +1821,16 @@ class HIPLib():
                 if hit1 in self.hubs:
                     self.hubs[hit1] = "R2_RECEIVED";
 
-                x_list_raw, indicies = zip(*ecbd_points);
+                x_list_raw, indicies, sender_hits = zip(*ecbd_points);
                 x_list_decoded = []
                 for point in x_list_raw:
                     # We get a list back cause we used to store the entire list, this is fucked for us now
                     # change it now.
                     x_list_decoded.append(self.ecbd_storage.decode_public_list(point)[0]);
 
-                for i, p in zip(indicies, x_list_decoded):
+                for i, p, shit in zip(indicies, x_list_decoded, sender_hits):
                     self.ecbd_storage.x_list[i] = p;
+                    self.ecbd_storage.participant_hits[i] = shit;
 
                 logging.info("X_list: {}".format(self.ecbd_storage.x_list));
                 if self.ecbd_storage.is_x_list_complete():
@@ -1904,7 +1922,7 @@ class HIPLib():
                 keymat = self.keymat_storage.get(Utils.ipv6_bytes_to_hex_formatted(rhit), 
                 	Utils.ipv6_bytes_to_hex_formatted(ihit));
                 # R2 packet incomming, IHIT - sender (Responder), RHIT - own HIT (Initiator)
-                (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, ihit, rhit);
+                (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, ihit, rhit);
                 hmac = HMACFactory.get(hmac_alg, hmac_key);
                 parameters       = hip_packet.get_parameters();
                 
@@ -2035,7 +2053,7 @@ class HIPLib():
                 # If OWN HIT is larger then we SHOULD use the first key 
                 #if Utils.is_hit_smaller(ihit, rhit):
                 (cipher_key, hmac_key) = Utils.get_keys_esp(
-                    keymat,
+                    self.ecbd_keymat_storage,
                     keymat_index, 
                     hmac.ALG_ID, 
                     cipher.ALG_ID,
@@ -2067,7 +2085,7 @@ class HIPLib():
                 # IN DIRECTION (IHIT - sender, RHIT - OWN)
                 
                 (cipher_key, hmac_key) = Utils.get_keys_esp(
-                    keymat, 
+                    self.ecbd_keymat_storage, 
                     keymat_index, 
                     hmac.ALG_ID, 
                     cipher.ALG_ID, 
@@ -2113,7 +2131,7 @@ class HIPLib():
                     sv = self.state_variables.get(Utils.ipv6_bytes_to_hex_formatted(ihit),
                         Utils.ipv6_bytes_to_hex_formatted(rhit));
                 sv.data_timeout = time.time() + self.config["general"]["UAL"];
-                #sv.state = HIPState.HIP_STATE_ESTABLISHED;
+                sv.state = HIPState.HIP_STATE_ESTABLISHED;
             elif hip_packet.get_packet_type() == HIP.HIP_UPDATE_PACKET:
                 logging.info("UPDATE packet");
                 if (hip_state.is_i1_sent() 
@@ -2161,9 +2179,9 @@ class HIPLib():
                         Utils.ipv6_bytes_to_hex_formatted(rhit));
                 # UPDATE packet incomming, IHIT - sender (Initiator), RHIT - own HIT (responder)
                 if sv.is_responder:
-                    (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
+                    (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
                 else:
-                    (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
+                    (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
                 hmac = HMACFactory.get(hmac_alg, hmac_key);
 
                 for parameter in parameters:
@@ -2266,9 +2284,9 @@ class HIPLib():
                 # UPDATE ACK packet outgoing, RHIT - own HIT (Initiator), IHIT - recipient
                 # OUT DIRECTION
                 if sv.is_responder:
-                    (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
+                    (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
                 else:
-                    (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
+                    (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
                 #(aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
 
                 hmac = HMACFactory.get(hmac_alg, hmac_key);
@@ -2383,9 +2401,9 @@ class HIPLib():
                 logging.debug("HMAC algorithm %d" % (hmac_alg));
                 # CLOSE packet incomming, IHIT - sender (Initiator), RHIT - own HIT (responder)
                 if sv.is_responder:
-                    (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
+                    (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
                 else:
-                    (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
+                    (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
                 hmac = HMACFactory.get(hmac_alg, hmac_key);
 
                 for parameter in parameters:
@@ -2470,9 +2488,9 @@ class HIPLib():
 
                 #(aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, rhit, ihit);
                 if sv.is_responder:
-                    (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
+                    (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
                 else:
-                    (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
+                    (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
                 hmac = HMACFactory.get(hmac_alg, hmac_key);
 
                 hip_close_ack_packet = HIP.CloseAckPacket();
@@ -2584,9 +2602,9 @@ class HIPLib():
                 logging.debug("Cipher algorithm %d " % (cipher_alg));
                 logging.debug("HMAC algorithm %d" % (hmac_alg));
                 if sv.is_responder:
-                    (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
+                    (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
                 else:
-                    (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
+                    (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
                 hmac = HMACFactory.get(hmac_alg, hmac_key);
 
                 for parameter in parameters:
@@ -3123,9 +3141,9 @@ class HIPLib():
                     Utils.ipv6_bytes_to_hex_formatted(sv.rhit));
             # OUTGOING
             if sv.is_responder:
-                (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
+                (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
             else:
-                (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
+                (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
             hmac = HMACFactory.get(hmac_alg, hmac_key);
 
             hip_close_packet = HIP.ClosePacket();
@@ -3221,9 +3239,9 @@ class HIPLib():
                         cipher_alg = self.cipher_storage.get(Utils.ipv6_bytes_to_hex_formatted(sv.ihit), 
                             Utils.ipv6_bytes_to_hex_formatted(sv.rhit));
                     if sv.is_responder:
-                        (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
+                        (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
                     else:
-                        (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
+                        (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
 
                     hmac = HMACFactory.get(hmac_alg, hmac_key);
                     logging.debug("HMAC algorithm %d" % (hmac_alg));
@@ -3309,9 +3327,9 @@ class HIPLib():
 
                     # OUTGOING
                     if sv.is_responder:
-                        (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
+                        (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
                     else:
-                        (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
+                        (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
                     
                     hmac = HMACFactory.get(hmac_alg, hmac_key);
 
@@ -3483,9 +3501,9 @@ class HIPLib():
                             Utils.ipv6_bytes_to_hex_formatted(sv.rhit));
                     # OUTGOING
                     if sv.is_responder:
-                        (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
+                        (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.rhit, sv.ihit);
                     else:
-                        (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
+                        (aes_key, hmac_key) = Utils.get_keys(self.ecbd_keymat_storage, hmac_alg, cipher_alg, sv.ihit, sv.rhit);
 
                     logging.debug("HMAC algorithm %d" % (hmac_alg));
                     hmac = HMACFactory.get(hmac_alg, hmac_key);

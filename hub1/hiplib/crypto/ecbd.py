@@ -12,9 +12,14 @@ class ECBD:
         self.nr_of_participants = 6
         self.private_key = random.randint(0, curve.n-1)
         self.id = id
+        self.participant_hits = [0] * self.nr_of_participants
         self.z_list = [(0, 0)]*self.nr_of_participants
         self.x_list = [(0, 0)]*self.nr_of_participants
+        self.key = (0, 0)
         self._compute_z()
+
+    def is_key_computed(self):
+        return self.key != (0, 0)
 
     def _compute_z(self):
         z = scalar_mult(self.private_key, curve.g)

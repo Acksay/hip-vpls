@@ -185,7 +185,7 @@ def receive_hip_packet(hip_packets):
         Perform manual packet reassembly.
     """
     while True:
-        raw_fragment = bytearray(hip_socket.recv(1518));
+        raw_fragment = bytearray(hip_socket.recv(3000));
         ipv4_fragment = IPv4.IPv4Packet(raw_fragment);
         hip_fragment = HIP.HIPPacket(ipv4_fragment.get_payload());
 
@@ -207,15 +207,18 @@ def receive_hip_packet(hip_packets):
                 point_id = parameter.get_group_id();
                 point = parameter.get_public_value();
 
+
         # Ignore any HIP packets that aren't fragmented
         if packet_id == -1 or frag_id == -1 or mf_flag == -1:
             continue;
+
+        sender_hit = hip_fragment.get_senders_hit();
         if not packet_id in hip_packets:
             hip_packets[packet_id] = HIPFragments(packet_id);
         
         # Add the ECBD parameter if we found it (means this is not the first fragment)
         if point != None: 
-            hip_packets[packet_id].add_fragment(raw_fragment, frag_id, (point, point_id));
+            hip_packets[packet_id].add_fragment(raw_fragment, frag_id, (point, point_id, sender_hit));
         else:
             hip_packets[packet_id].add_fragment(raw_fragment, frag_id);
 
@@ -231,16 +234,19 @@ def ip_sec_loop():
         try:
             es = time()
             s = time()
-            packet = bytearray(ip_sec_socket.recv(1518));
+            packet = bytearray(ip_sec_socket.recv(3000));
             e = time()
             #logging.info("IPSEC recv time %f " % (e-s))
             s = time()
             (frame, src, dst) = hiplib.process_ip_sec_packet(packet)
             e = time()
-            #logging.info("IPSEC process time %f " % (e-s))
+            logging.info("IPSEC process time %f " % (e-s))
             if not frame:
                 continue;
+            if len(frame) >= 2000:
+                continue;
             s = time()
+
             ether_socket.send(frame);
             e = time()
             #logging.info("L2 send time %f " % (e-s))
@@ -257,7 +263,7 @@ def ether_loop():
     sleep(3);
     while True:
         try:
-            buf = bytearray(ether_socket.recv(1518));
+            buf = bytearray(ether_socket.recv(3000));
             frame = Ethernet.EthernetFrame(buf);
             s = time()
             e = time()
@@ -280,8 +286,12 @@ def ether_loop():
                 e = time()
                 #logging.info("L2 process time %f " % (e-s))
                 for (hip, packet, dest) in packets:
+                    #logging.info("Packet size: {}".format(len(packet)));
                     #logging.debug("Sending L2 frame to: %s %s" % (hexlify(ihit), hexlify(rhit)))
+                    size = len(packet);
                     if not hip:
+                        if size >= 2000:
+                            continue;
                         s = time()
                         ip_sec_socket.sendto(packet, dest)
                         e = time()

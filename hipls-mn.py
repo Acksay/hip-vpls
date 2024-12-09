@@ -118,9 +118,9 @@ def run():
             net[router].cmd(f'/sbin/ethtool -K {router}-{iface} rx off tx off sg off')
 
 
-    # info( net[ 'h1' ].cmd( 'ifconfig h1-eth0 mtu 1400' ) )
-    # info( net[ 'h2' ].cmd( 'ifconfig h2-eth0 mtu 1400' ) )
-    # info( net[ 'h3' ].cmd( 'ifconfig h3-eth0 mtu 1400' ) )
+
+    #info( net[ 'hu2' ].cmd( 'ifconfig h2-eth0 mtu 1700' ) )
+    #info( net[ 'hu3' ].cmd( 'ifconfig h3-eth0 mtu 100' ) )
     # info( net[ 'h4' ].cmd( 'ifconfig h4-eth0 mtu 1400' ) )
 
     # info( net[ 'sw1' ].cmd( 'ovs-vsctl set bridge sw1 stp_enable=true' ) ) #???onödig???
@@ -141,6 +141,19 @@ def run():
     # info(net['hu1'].cmd('ping -c 3 192.168.3.3'))  # Test hu1 to hu3
     # info(net['sp1'].cmd('ping -c 3 192.168.1.1'))  # Test sp1 to hu1
     # info(net['hu1'].cmd('ping -c 3 192.168.1.4'))  # Test hu1 to sp1
+
+    # Set OS MTU (Has to be done for each interface!!!!)
+    net[ 'hu1' ].cmd( 'ifconfig hu1-eth0 mtu 2000' )
+    net[ 'hu1' ].cmd( 'ifconfig hu1-eth1 mtu 2000' )
+    net[ 'hu2' ].cmd( 'ifconfig hu2-eth0 mtu 2000' )
+    net[ 'hu2' ].cmd( 'ifconfig hu2-eth1 mtu 2000' )
+    net[ 'hu3' ].cmd( 'ifconfig hu3-eth0 mtu 2000' )
+    net[ 'hu3' ].cmd( 'ifconfig hu3-eth1 mtu 2000' )
+
+    net[ 'sp1' ].cmd( 'ifconfig sp1-eth1 mtu 2000' )
+    net[ 'sp2' ].cmd( 'ifconfig sp2-eth1 mtu 2000' )
+    net[ 'sp3' ].cmd( 'ifconfig sp3-eth1 mtu 2000' )
+
     info( '*** Running HIPLS on router 1 *** \n') 
     info( net[ 'hu1' ].cmd( 'cd hub1 && python3 switchd.py &' ) )
     info( '*** Running HIPLS on router 2 *** \n')
