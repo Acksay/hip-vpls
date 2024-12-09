@@ -74,7 +74,6 @@ from hiplib.databases import resolver
 from hiplib.databases import Firewall
 # Utilities
 from hiplib.utils.misc import Utils
-
 class HIPLib():
     def __init__(self, config):
         self.config = config;
@@ -82,6 +81,8 @@ class HIPLib():
 
         self.firewall = Firewall.BasicFirewall();
         self.firewall.load_rules(self.config["firewall"]["rules_file"])
+
+        self.time_dict = {}
 
         # HIP v2 https://tools.ietf.org/html/rfc7401#section-3
         # Configure resolver
@@ -1354,10 +1355,20 @@ class HIPLib():
                     logging.critical("Invalid signature. Dropping the packet");
                     return []
                 else:
-                    logging.debug("Signature is correct");
+                    logging.debug("1: Signature is correct");
 
                 logging.debug("Processing I2 packet %f" % (time.time() - st));
-                
+               
+                lul = Utils.ipv6_bytes_to_hex(ihit)
+                test = lul in self.time_dict
+                logging.debug(test)
+                send_time = self.time_dict[lul]
+                end_time = time.time() - send_time
+                self.time_dict[lul] = end_time
+                logging.debug("TIMINING AT IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
+                logging.debug(self.time_dict)
+
+
                 st = time.time();
 
                 hip_r2_packet = HIP.R2Packet();
@@ -1601,7 +1612,7 @@ class HIPLib():
                         Utils.ipv6_bytes_to_hex_formatted(rhit));
                 keymat = self.keymat_storage.get(Utils.ipv6_bytes_to_hex_formatted(rhit), 
                 	Utils.ipv6_bytes_to_hex_formatted(ihit));
-                # R2 packet incomming, IHIT - sender (Responder), RHIT - own HIT (Initiator)
+                # R2 packet incomming, IHIT sender (Responder), RHIT - own HIT (Initiator)
                 (aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, ihit, rhit);
                 hmac = HMACFactory.get(hmac_alg, hmac_key);
                 parameters       = hip_packet.get_parameters();
@@ -1691,7 +1702,7 @@ class HIPLib():
                 if not signature_alg.verify(signature_param.get_signature(), bytearray(buf)):
                     logging.critical("Invalid signature. Dropping the packet");
                 else:
-                    logging.debug("Signature is correct");
+                    logging.debug("2: Signature is correct");
 
                 responders_spi = esp_info_param.get_new_spi();
                 keymat_index = esp_info_param.get_keymat_index();
@@ -1699,9 +1710,21 @@ class HIPLib():
                 logging.debug("Processing R2 packet %f" % (time.time() - st));
                 logging.debug("Ending HIP BEX %f" % (time.time()));
 
+
+                logging.debug("---------------------------------------------")
+
                 dst_str = Utils.ipv4_bytes_to_string(dst);
                 src_str = Utils.ipv4_bytes_to_string(src);
 
+
+                lul = Utils.ipv6_bytes_to_hex(ihit)
+                test = lul in self.time_dict
+                logging.debug(test)
+                send_time = self.time_dict[lul]
+                end_time = time.time() - send_time
+                self.time_dict[lul] = end_time
+                logging.debug("TIMIMING AT RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR") 
+                logging.debug(self.time_dict)
                 logging.debug("Setting SA records... %s - %s" % (src_str, dst_str));
 
                 if Utils.is_hit_smaller(rhit, ihit):
@@ -1794,6 +1817,8 @@ class HIPLib():
                 sa_record = SA.SecurityAssociationRecord(cipher.ALG_ID, hmac.ALG_ID, cipher_key, hmac_key, rhit, ihit);
                 sa_record.set_spi(responders_spi);
                 self.ip_sec_sa.add_record(src_str, dst_str, sa_record);
+
+
 
                 # Transition to an Established state
                 hip_state.established();
@@ -1948,8 +1973,13 @@ class HIPLib():
                     logging.critical("Invalid signature. Dropping the packet");
                     return [];
                 else:
-                    logging.debug("Signature is correct");
-
+                    logging.debug("3: Signature is correct");
+                    #lul = Utils.ipv6_bytes_to_hex(ihit)
+                    #send_time = self.time_dict[lul]
+                    #end_time = time.time() - send_time
+                    #self.time_dict[lul] = end_time
+                    #logging.debug("TIMEMEMEMEMEMEME")
+                    #logging.debug(self.time_dict)
                 if ack_param:
                     logging.debug("This is a response to a UPDATE. Skipping pong...");
                     return [];
@@ -2155,7 +2185,7 @@ class HIPLib():
                     logging.critical("Invalid signature. Dropping the packet");
                     return [];
                 else:
-                    logging.debug("Signature is correct");
+                    logging.debug("4:Signature is correct");
 
                 #(aes_key, hmac_key) = Utils.get_keys(keymat, hmac_alg, cipher_alg, rhit, ihit);
                 if sv.is_responder:
@@ -2355,7 +2385,7 @@ class HIPLib():
                     logging.critical("Invalid signature. Dropping the packet");
                     return [];
                 else:
-                    logging.debug("Signature is correct");
+                    logging.debug("5: Signature is correct");
 
                 if hip_state.is_closing() or hip_state.is_closed():
                     logging.debug("Moving to unassociated state...");
@@ -2491,6 +2521,8 @@ class HIPLib():
                 #logging.debug("Unassociate state reached");
                 #logging.debug("Starting HIP BEX %f" % (time.time()));
                 #logging.info("Resolving %s to IPv4 address" % Utils.ipv6_bytes_to_hex_formatted(rhit));
+                i1_send_time = time.time()
+                self.time_dict[Utils.ipv6_bytes_to_hex(rhit)] = i1_send_time
 
                 # Resolve the HIT code can be improved
                 if not self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(rhit)):
@@ -2539,6 +2571,8 @@ class HIPLib():
 
                 # Send HIP I1 packet to destination
                 logging.debug("Sending I1 packet to %s %f" % (dst_str, time.time() - st));
+               # i1_send_time = time.time()
+               # self.time_dict[Utils.ipv6_bytes_to_hex(rhit)] = i1_send_time
                 #hip_socket.sendto(bytearray(ipv4_packet.get_buffer()), (dst_str.strip(), 0));
                 response.append((True, bytearray(ipv4_packet.get_buffer()), (dst_str.strip(), 0)))
                 # Transition to an I1-Sent state

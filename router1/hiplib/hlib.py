@@ -160,7 +160,6 @@ class HIPLib():
         self.hit_resolver.load_records(filename = self.config["resolver"]["hosts_file"]);
         
     def process_hip_packet(self, packet):
-        start_time = time.time()
         try:
             response = [];
             # IP reassmebly is done automatically so we can read large enough packets
@@ -1366,7 +1365,7 @@ class HIPLib():
                 send_time = self.time_dict[lul]
                 end_time = time.time() - send_time
                 self.time_dict[lul] = end_time
-                logging.debug("TIMEMEMEMEMEMEME")
+                logging.debug("TIMINING AT IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
                 logging.debug(self.time_dict)
 
 
@@ -1724,7 +1723,7 @@ class HIPLib():
                 send_time = self.time_dict[lul]
                 end_time = time.time() - send_time
                 self.time_dict[lul] = end_time
-                logging.debug("TIMEMEMEMEMEMEME") 
+                logging.debug("TIMIMING AT RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR") 
                 logging.debug(self.time_dict)
                 logging.debug("Setting SA records... %s - %s" % (src_str, dst_str));
 
@@ -2522,6 +2521,8 @@ class HIPLib():
                 #logging.debug("Unassociate state reached");
                 #logging.debug("Starting HIP BEX %f" % (time.time()));
                 #logging.info("Resolving %s to IPv4 address" % Utils.ipv6_bytes_to_hex_formatted(rhit));
+                i1_send_time = time.time()
+                self.time_dict[Utils.ipv6_bytes_to_hex(rhit)] = i1_send_time
 
                 # Resolve the HIT code can be improved
                 if not self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(rhit)):
@@ -2570,8 +2571,8 @@ class HIPLib():
 
                 # Send HIP I1 packet to destination
                 logging.debug("Sending I1 packet to %s %f" % (dst_str, time.time() - st));
-                i1_send_time = time.time()
-                self.time_dict[Utils.ipv6_bytes_to_hex(rhit)] = i1_send_time
+               # i1_send_time = time.time()
+               # self.time_dict[Utils.ipv6_bytes_to_hex(rhit)] = i1_send_time
                 #hip_socket.sendto(bytearray(ipv4_packet.get_buffer()), (dst_str.strip(), 0));
                 response.append((True, bytearray(ipv4_packet.get_buffer()), (dst_str.strip(), 0)))
                 # Transition to an I1-Sent state
