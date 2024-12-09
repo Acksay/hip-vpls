@@ -26,10 +26,10 @@ class NetworkTopo( Topo ):
         router2 = self.addNode( 'r2', cls=LinuxRouter )
         router3 = self.addNode( 'r3', cls=LinuxRouter )
         router4 = self.addNode( 'r4', cls=LinuxRouter )
-        router5 = self.addNode( 'r4', cls=LinuxRouter )
+        router5 = self.addNode( 'r5', cls=LinuxRouter )
         router6 = self.addNode( 'r6', cls=LinuxRouter )
 
-        s1, s2, s3, s4, s5, s6, s7 = [ self.addSwitch( s, cls=OVSKernelSwitch ) for s in ( 's1', 's2', 's3', 's4', 's5','s6','s7' ) ]
+        s1, s2, s3, s4, s5, s6, s7 = [ self.addSwitch( s, cls=OVSKernelSwitch ) for s in ( 's1', 's2', 's3', 's4', 's5', 's6', 's7' ) ]
         self.addLink( s7, router1,
                 intfName2='r1-eth1',
                 params2={ 'ip' : '192.168.3.1/29' } )
@@ -50,7 +50,7 @@ class NetworkTopo( Topo ):
                 params2={ 'ip' : '192.168.3.6/29' } )
         
         self.addLink( s1, router1, intfName2='r1-eth0',
-                      params2={ 'ip' : '192.168.1.1/24' } )
+                params2={ 'ip' : '192.168.1.1/24' } )
         self.addLink( s2, router2, intfName2='r2-eth0',
                 params2={ 'ip' : '192.168.1.2/24' } )
         self.addLink( s3, router3, intfName2='r3-eth0',
@@ -77,8 +77,8 @@ class NetworkTopo( Topo ):
                            defaultRoute='via 192.168.1.1' )
 
 
-        for h, s in [ (h1, s1), (h2, s2), (h3, s3), (h4, s4), (h5,s5), (h6,s6) ]:
-            self.addLink( h, s )
+        for h, s in [ (h1, s1), (h2, s2), (h3, s3), (h4, s4), (h5, s5), (h6, s6) ]:
+                self.addLink( h, s )
 from time import sleep
 def run():
     topo = NetworkTopo()
@@ -119,8 +119,8 @@ def run():
     info( net[ 'h2' ].cmd( 'ifconfig h2-eth0 mtu 1400' ) )
     info( net[ 'h3' ].cmd( 'ifconfig h3-eth0 mtu 1400' ) )
     info( net[ 'h4' ].cmd( 'ifconfig h4-eth0 mtu 1400' ) )
-    info( net[ 'h5' ].cmd( 'ifconfig h4-eth0 mtu 1400' ) )
-    info( net[ 'h6' ].cmd( 'ifconfig h4-eth0 mtu 1400' ) )
+    info( net[ 'h5' ].cmd( 'ifconfig h5-eth0 mtu 1400' ) )
+    info( net[ 'h6' ].cmd( 'ifconfig h6-eth0 mtu 1400' ) )
 
 
     info( net[ 's1' ].cmd( 'ovs-vsctl set bridge s1 stp_enable=true' ) )
@@ -143,7 +143,6 @@ def run():
     info( net[ 'r3' ].cmd( 'cd router3 && python3 switchd.py &' ) )
     info( '*** Running HIPLS on router 4 *** \n')
     info( net[ 'r4' ].cmd( 'cd router4 && python3 switchd.py &' ) )
-    
     info( '*** Running HIPLS on router 5 *** \n')
     info( net[ 'r5' ].cmd( 'cd router5 && python3 switchd.py &' ) )
     info( '*** Running HIPLS on router 6 *** \n')
