@@ -29,7 +29,6 @@ for i in $(seq 1 $spokes); do
     sudo cp -r "${project}${s1}${index}" "${project}${s1}${new_spoke}"
 
     # Generate key for spoke i+3
-    # Run python3 script to gen HIT for i+3
     if cd "${spoke_path}hiplib/"; then
         openssl genrsa -out private.pem 1024
         openssl rsa -in private.pem -outform PEM -pubout -out public.pem
@@ -41,6 +40,7 @@ for i in $(seq 1 $spokes); do
         continue
     fi
 
+    # Run python3 script to gen HIT for i+3
     if cd "${spoke_path}"; then
         python_output=$(sudo python3 "hiplib/tools/genhit.py")
         echo "HIT from genhit.py for spoke${new_spoke}: $python_output"
@@ -68,9 +68,9 @@ for i in $(seq 1 $spokes); do
     echo "$updated_config" | sudo tee "$config_path/config.py" > /dev/null
 
     #Update mesh file
-    # config=$(<"${config_path}/mesh")
-    # updated_mesh=$(echo "$config" | sed -E "s/^([^ ]*) /\1${python_output}/")
-    # echo "$updated_mesh" | sudo tee "$config_path/mesh" > /dev/null
+    config=$(<"${config_path}/mesh")
+    updated_mesh=$(echo "$config" | sed -E "s/^[^ ]* /${python_output} /")
+    echo "$updated_mesh" | sudo tee "$config_path/mesh" > /dev/null
 
     #Update hosts file
     config=$(<"${config_path}/hosts")
