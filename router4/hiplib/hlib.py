@@ -82,7 +82,6 @@ class HIPLib():
         self.firewall = Firewall.BasicFirewall();
         self.firewall.load_rules(self.config["firewall"]["rules_file"])
 
-        self.time_dict = {}
         self.start = 0
 
         # HIP v2 https://tools.ietf.org/html/rfc7401#section-3
@@ -1359,15 +1358,6 @@ class HIPLib():
                     logging.debug("1: Signature is correct");
 
                 logging.debug("Processing I2 packet %f" % (time.time() - st));
-               
-                lul = Utils.ipv6_bytes_to_hex(ihit)
-                test = lul in self.time_dict
-                logging.debug(test)
-                send_time = self.time_dict[lul]
-                end_time = time.time() - send_time
-                self.time_dict[lul] = end_time
-                logging.debug("TIMINING AT IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
-                logging.debug(self.time_dict)
 
 
                 st = time.time();
@@ -1713,6 +1703,8 @@ class HIPLib():
                 end_time = time.time()
                 logging.debug("Complete BEX TIME åäö")
                 logging.debug(end_time-self.start)
+                logging.debug(Utils.ipv6_bytes_to_hex(ihit))
+                logging.debug(Utils.ipv4_bytes_to_string(src))
 
 
                 logging.debug("---------------------------------------------")
@@ -1720,15 +1712,6 @@ class HIPLib():
                 dst_str = Utils.ipv4_bytes_to_string(dst);
                 src_str = Utils.ipv4_bytes_to_string(src);
 
-
-                lul = Utils.ipv6_bytes_to_hex(ihit)
-                test = lul in self.time_dict
-                logging.debug(test)
-                send_time = self.time_dict[lul]
-                end_time = time.time() - send_time
-                self.time_dict[lul] = end_time
-                logging.debug("TIMIMING AT RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR") 
-                logging.debug(self.time_dict)
                 logging.debug("Setting SA records... %s - %s" % (src_str, dst_str));
 
                 if Utils.is_hit_smaller(rhit, ihit):
@@ -1978,12 +1961,6 @@ class HIPLib():
                     return [];
                 else:
                     logging.debug("3: Signature is correct");
-                    #lul = Utils.ipv6_bytes_to_hex(ihit)
-                    #send_time = self.time_dict[lul]
-                    #end_time = time.time() - send_time
-                    #self.time_dict[lul] = end_time
-                    #logging.debug("TIMEMEMEMEMEMEME")
-                    #logging.debug(self.time_dict)
                 if ack_param:
                     logging.debug("This is a response to a UPDATE. Skipping pong...");
                     return [];
@@ -2526,7 +2503,7 @@ class HIPLib():
                 #logging.debug("Starting HIP BEX %f" % (time.time()));
                 #logging.info("Resolving %s to IPv4 address" % Utils.ipv6_bytes_to_hex_formatted(rhit));
                 self.start = time.time()
-                self.time_dict[Utils.ipv6_bytes_to_hex(rhit)] = self.start
+               
 
                 # Resolve the HIT code can be improved
                 if not self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(rhit)):
