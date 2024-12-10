@@ -5,6 +5,8 @@ from mininet.net import Mininet
 from mininet.node import Node, OVSController, OVSKernelSwitch
 from mininet.log import setLogLevel, info
 from mininet.cli import CLI
+import argparse
+import sys
 
 
 class LinuxRouter( Node ):
@@ -21,6 +23,11 @@ class LinuxRouter( Node ):
 
 
 class NetworkTopo( Topo ):
+
+    def __init__(self, hub_count, **_opts):
+        self.hub_count = hub_count
+        super().__init__(**_opts)
+
     def build( self, **_opts ):
         hub1 = self.addNode( 'hu1', cls=LinuxRouter )
         hub2 = self.addNode( 'hu2', cls=LinuxRouter )
@@ -44,6 +51,19 @@ class NetworkTopo( Topo ):
         self.addLink(switch2, spoke2, intfName2='sp2-eth1', params2={ 'ip' : '192.168.1.5/24'} )
         self.addLink(switch3, hub3,  intfName2='hu3-eth0', params2={ 'ip' : '192.168.1.3/24'}) #/24?? ,
         self.addLink(switch3, spoke3, intfName2='sp3-eth1', params2={ 'ip' : '192.168.1.6/24'} )
+
+        spokes = []
+        for i in range(self.hub_count):
+            spokes += self.addNode( 'sp'+(i+3), cls=LinuxRouter )
+            if i%3 + 1 == 2:
+                switch = switch2
+            elif i % 3 +1 == 3:
+                switch = switch3
+            else:
+                switch = switch1
+            self.addLink(switch, spokes[i], intfName2='sp'+(i+3)+'-eth1', params2={ 'ip' : '192.168.1.'+(i+3)+'/24'} )
+
+
         # s1, s2, s3, s4, s5 = [ self.addSwitch( s, cls=OVSKernelSwitch ) for s in ( 's1', 's2', 's3', 's4', 's5' ) ]
         # self.addLink( s5, router1,
         #         intfName2='r1-eth1',
@@ -76,10 +96,12 @@ class NetworkTopo( Topo ):
         # for h, s in [ (h1, s1), (h2, s2), (h3, s3), (h4, s4) ]:
         #     self.addLink( h, s )
 from time import sleep
-def run():
-    topo = NetworkTopo()
+def run(spokes):
+    print("Number of extra spokes: " + spokes)
+    topo = NetworkTopo(hub_count=spokes)
     net = Mininet(topo=topo, switch=OVSKernelSwitch, controller = OVSController)
     net.start()
+
     info( net[ 'hu1' ].cmd( 'ifconfig hu1-eth1 192.168.3.1 netmask 255.255.255.248') )
     info( net[ 'hu2' ].cmd( 'ifconfig hu2-eth1 192.168.3.2 netmask 255.255.255.248' ) )
     info( net[ 'hu3' ].cmd( 'ifconfig hu3-eth1 192.168.3.3 netmask 255.255.255.248' ) )
@@ -128,7 +150,16 @@ def run():
     # # info( net[ 'sw3' ].cmd( 'ovs-vsctl set bridge sw3 stp_enable=true' ) )
     # info( net[ 'sw4' ].cmd( 'ovs-vsctl set bridge sw4 stp_enable=true' ) )
 
-
+    #Creating additional spokes
+    for i in range(spokes):
+        router='sp'+(i+3)
+        info( net[router].cmd( 'ifconfig '+router+'-eth1 192.168.1.'+(i+3)+'netmask 255.255.255.0' ) )
+        info( net[router].cmd( '/sbin/ethtool -K '+router+'-eth1 rx off tx off sg off' ) )
+        net['sp'+(i+3)].cmd('ip route add 192.168.3.0/29 via 192.168.1.'+(i%3+1)+'dev '+router+'-eth1')
+        for iface in ['eth0', 'eth1']:
+            net[router].cmd(f'/sbin/ethtool -K {router}-{iface} rx off tx off sg off')
+        info( net[router].cmd( 'cd spoke'+(i+3)+' && python3 switchd.py &' ) )
+        
     info( '*** Routing Table on Router:\n' )
     info( net[ 'hu1' ].cmd( 'route -n' ) )
     info( net[ 'hu2' ].cmd( 'route -n' ) )
@@ -152,9 +183,15 @@ def run():
     info( '*** Running HIPLS on router 4 *** \n')
     info( net[ 'sp2' ].cmd( 'cd spoke2 && python3 switchd.py &' ) )
     info( net[ 'sp3' ].cmd( 'cd spoke3 && python3 switchd.py &' ) )
+
     CLI( net )
     net.stop()
 
 if __name__ == '__main__':
     setLogLevel( 'info' )
-    run()
+    spokes = None
+    for i in range(1, len(sys.argv), 2):
+        if sys.argv[i] == '-n':
+            spokes = int(sys.argv[i + 1])
+            break
+    run(spokes)

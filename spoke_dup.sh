@@ -77,7 +77,48 @@ for i in $(seq 1 $spokes); do
     updated_hosts=$(echo "$config" | sed "2s/.*/${python_output} 192.168.1.${spokenr}/")
     echo "$updated_hosts" | sudo tee "$config_path/hosts" > /dev/null
 
+    #NO NEED: Update mesh and hosts in Hub for spoke , clear the old added before doing this
+
+    #Create mininet (prb modify setup script)
     echo "Updated configuration for spoke${new_spoke}"
 done 
+
+#Update Rules , make 1 file for everyone, could prb use mesh files
+#Take initial rules file from hub and paste here / create template file
+# rules=""
+# spokes="${spokes:-0}" # Default to 0 if not set
+# total_spokes=$((3 + spokes))
+
+# for i in $(seq 1 $total_spokes); do
+#   if [ "$i" -lt 4 ]; then
+#     hub_path="${project}/${h1}${i}/hiplib/config/mesh"
+#     if [ -f "$hub_path" ]; then
+#       hub_mesh=$(<"$hub_path")
+#       rules="${rules}$'\n'${hub_mesh}"
+#     else
+#       echo "Error: File not found at $hub_path" >&2
+#     fi
+#   fi
+#   spoke_path="${project}/${s1}${i}/hiplib/config/mesh"
+#   if [ -f "$spoke_path" ]; then
+#     spoke_mesh=$(<"$spoke_path")
+#     rules="${rules}$'\n'${spoke_mesh}"
+#   else
+#     echo "Error: File not found at $spoke_path" >&2
+#   fi
+# done
+
+# for i in $(seq 1 $total_spokes); do
+#   if [ "$i" -lt 4 ]; then
+#     hub_path="${project}/${h1}${i}/hiplib/config/mesh"
+#     echo "$rules" | sudo tee "$hub_path" > /dev/null
+#   fi
+#   spoke_path="${project}/${s1}${i}/hiplib/config/mesh"
+#   echo "$rules" | sudo tee "$spoke_path" > /dev/null
+# done
+
+echo "Running python mn setup"
+
+sudo python3 hipls-mn.py -n "${spokes}"
 
 echo "Finished copying and creating $spokes spokes"
