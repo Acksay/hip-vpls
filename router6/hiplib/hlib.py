@@ -83,6 +83,7 @@ class HIPLib():
         self.firewall.load_rules(self.config["firewall"]["rules_file"])
 
         self.time_dict = {}
+        self.start = 0
 
         # HIP v2 https://tools.ietf.org/html/rfc7401#section-3
         # Configure resolver
@@ -1359,14 +1360,14 @@ class HIPLib():
 
                 logging.debug("Processing I2 packet %f" % (time.time() - st));
                
-                #lul = Utils.ipv6_bytes_to_hex(ihit)
-                #test = lul in self.time_dict
-                #logging.debug(test)
-                #send_time = self.time_dict[lul]
-                #end_time = time.time() - send_time
-                #self.time_dict[lul] = end_time
-                #logging.debug("TIMINING AT IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
-                #logging.debug(self.time_dict)
+                lul = Utils.ipv6_bytes_to_hex(ihit)
+                test = lul in self.time_dict
+                logging.debug(test)
+                send_time = self.time_dict[lul]
+                end_time = time.time() - send_time
+                self.time_dict[lul] = end_time
+                logging.debug("TIMINING AT IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
+                logging.debug(self.time_dict)
 
 
                 st = time.time();
@@ -1709,6 +1710,9 @@ class HIPLib():
 
                 logging.debug("Processing R2 packet %f" % (time.time() - st));
                 logging.debug("Ending HIP BEX %f" % (time.time()));
+                end_time = time.time()
+                logging.debug("Complete BEX TIME åäö")
+                logging.debug(end_time-self.start)
 
 
                 logging.debug("---------------------------------------------")
@@ -2521,8 +2525,8 @@ class HIPLib():
                 #logging.debug("Unassociate state reached");
                 #logging.debug("Starting HIP BEX %f" % (time.time()));
                 #logging.info("Resolving %s to IPv4 address" % Utils.ipv6_bytes_to_hex_formatted(rhit));
-                i1_send_time = time.time()
-                self.time_dict[Utils.ipv6_bytes_to_hex(rhit)] = i1_send_time
+                self.start = time.time()
+                self.time_dict[Utils.ipv6_bytes_to_hex(rhit)] = self.start
 
                 # Resolve the HIT code can be improved
                 if not self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(rhit)):
