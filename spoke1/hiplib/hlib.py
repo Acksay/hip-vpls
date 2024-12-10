@@ -93,6 +93,8 @@ class HIPLib():
         self.firewall = Firewall.BasicFirewall();
         self.firewall.load_rules(self.config["firewall"]["rules_file"])
 
+        self.start = 0
+
         # HIP v2 https://tools.ietf.org/html/rfc7401#section-3
         # Configure resolver
         logging.info("Using hosts file to resolve HITS %s" % (self.config["resolver"]["hosts_file"]));
@@ -1660,6 +1662,11 @@ class HIPLib():
                 logging.info("X_list: {}".format(self.ecbd_storage.x_list));
                 key = self.ecbd_storage.compute_k();
                 logging.info("Shared Key computed: {}".format(key));
+
+                end_time = time.time()
+                logging.debug("Complete BEX TIME åäö")
+                logging.debug(Utils.ipv4_bytes_to_string(src))
+                logging.debug(end_time-self.start)
                 
                 return []
                 
@@ -1830,6 +1837,8 @@ class HIPLib():
 
                 logging.debug("Processing R2 packet %f" % (time.time() - st));
                 logging.debug("Ending HIP BEX %f" % (time.time()));
+
+                
 
                 dst_str = Utils.ipv4_bytes_to_string(dst);
                 src_str = Utils.ipv4_bytes_to_string(src);
@@ -2627,6 +2636,7 @@ class HIPLib():
                 #logging.debug("Unassociate state reached");
                 #logging.debug("Starting HIP BEX %f" % (time.time()));
                 #logging.info("Resolving %s to IPv4 address" % Utils.ipv6_bytes_to_hex_formatted(rhit));
+                self.start = time.time()
 
                 # Resolve the HIT code can be improved
                 if not self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(rhit)):
