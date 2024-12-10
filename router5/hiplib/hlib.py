@@ -1359,14 +1359,14 @@ class HIPLib():
 
                 logging.debug("Processing I2 packet %f" % (time.time() - st));
                
-                lul = Utils.ipv6_bytes_to_hex(ihit)
-                test = lul in self.time_dict
-                logging.debug(test)
-                send_time = self.time_dict[lul]
-                end_time = time.time() - send_time
-                self.time_dict[lul] = end_time
-                logging.debug("TIMINING AT IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
-                logging.debug(self.time_dict)
+                #lul = Utils.ipv6_bytes_to_hex(ihit)
+                #test = lul in self.time_dict
+                #logging.debug(test)
+                #send_time = self.time_dict[lul]
+                #end_time = time.time() - send_time
+                #self.time_dict[lul] = end_time
+                #logging.debug("TIMINING AT IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
+                #logging.debug(self.time_dict)
 
 
                 st = time.time();
