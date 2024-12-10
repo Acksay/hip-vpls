@@ -24,8 +24,8 @@ class LinuxRouter( Node ):
 
 class NetworkTopo( Topo ):
 
-    def __init__(self, hub_count, **_opts):
-        self.hub_count = hub_count
+    def __init__(self, spoke_count, **_opts):
+        self.spoke_count = spoke_count
         super().__init__(**_opts)
 
     def build( self, **_opts ):
@@ -53,15 +53,15 @@ class NetworkTopo( Topo ):
         self.addLink(switch3, spoke3, intfName2='sp3-eth1', params2={ 'ip' : '192.168.1.6/24'} )
 
         spokes = []
-        for i in range(self.hub_count):
-            spokes += self.addNode( 'sp'+(i+3), cls=LinuxRouter )
+        for i in range(1,self.spoke_count+1):
+            spokes.append(self.addNode( 'sp'+str(i+3), cls=LinuxRouter ))
             if i%3 + 1 == 2:
                 switch = switch2
             elif i % 3 +1 == 3:
                 switch = switch3
             else:
                 switch = switch1
-            self.addLink(switch, spokes[i], intfName2='sp'+(i+3)+'-eth1', params2={ 'ip' : '192.168.1.'+(i+3)+'/24'} )
+            self.addLink(switch, spokes[i-1], intfName2='sp'+str(i+3)+'-eth1', params2={ 'ip' : '192.168.1.'+str(i+3)+'/24'} )
 
 
         # s1, s2, s3, s4, s5 = [ self.addSwitch( s, cls=OVSKernelSwitch ) for s in ( 's1', 's2', 's3', 's4', 's5' ) ]
@@ -97,8 +97,8 @@ class NetworkTopo( Topo ):
         #     self.addLink( h, s )
 from time import sleep
 def run(spokes):
-    print("Number of extra spokes: " + spokes)
-    topo = NetworkTopo(hub_count=spokes)
+    print("Number of extra spokes: " + str(spokes))
+    topo = NetworkTopo(spoke_count=spokes)
     net = Mininet(topo=topo, switch=OVSKernelSwitch, controller = OVSController)
     net.start()
 
@@ -151,14 +151,14 @@ def run(spokes):
     # info( net[ 'sw4' ].cmd( 'ovs-vsctl set bridge sw4 stp_enable=true' ) )
 
     #Creating additional spokes
-    for i in range(spokes):
-        router='sp'+(i+3)
-        info( net[router].cmd( 'ifconfig '+router+'-eth1 192.168.1.'+(i+3)+'netmask 255.255.255.0' ) )
+    for i in range(1, spokes+1):
+        router='sp'+str(i+3)
+        info( net[router].cmd( 'ifconfig '+router+'-eth1 192.168.1.'+str(i+3)+'netmask 255.255.255.0' ) )
         info( net[router].cmd( '/sbin/ethtool -K '+router+'-eth1 rx off tx off sg off' ) )
-        net['sp'+(i+3)].cmd('ip route add 192.168.3.0/29 via 192.168.1.'+(i%3+1)+'dev '+router+'-eth1')
+        net[router].cmd('ip route add 192.168.3.0/29 via 192.168.1.'+str(i%3+1)+'dev '+router+'-eth1')
         for iface in ['eth0', 'eth1']:
             net[router].cmd(f'/sbin/ethtool -K {router}-{iface} rx off tx off sg off')
-        info( net[router].cmd( 'cd spoke'+(i+3)+' && python3 switchd.py &' ) )
+        info( net[router].cmd( 'cd spoke'+str(i+3)+' && python3 switchd.py &' ) )
         
     info( '*** Routing Table on Router:\n' )
     info( net[ 'hu1' ].cmd( 'route -n' ) )

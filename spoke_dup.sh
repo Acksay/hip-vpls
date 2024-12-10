@@ -83,41 +83,70 @@ for i in $(seq 1 $spokes); do
     echo "Updated configuration for spoke${new_spoke}"
 done 
 
+echo "Configure rules file"
 #Update Rules , make 1 file for everyone, could prb use mesh files
 #Take initial rules file from hub and paste here / create template file
-# rules=""
-# spokes="${spokes:-0}" # Default to 0 if not set
-# total_spokes=$((3 + spokes))
+hub1="2001:0021:e1dd:fc6a:83ee:5648:830c:5681"
+hub2="2001:0021:6d6f:e8ec:7dce:bd01:a6d2:239e"
+hub3="2001:0021:b700:c845:6c5f:46bb:be58:2388"
+rules=""" 2001:0021:e1dd:fc6a:83ee:5648:830c:5681 2001:0021:6d6f:e8ec:7dce:bd01:a6d2:239e allow
+2001:0021:e1dd:fc6a:83ee:5648:830c:5681 2001:0021:b700:c845:6c5f:46bb:be58:2388 allow
+2001:0021:e1dd:fc6a:83ee:5648:830c:5681 2001:0021:77aa:b34f:657b:a4b2:ea6f:7537 allow
+2001:0021:e1dd:fc6a:83ee:5648:830c:5681 2001:0021:394b:5c1b:a114:0f3f:d0b8:74b2 allow
+2001:0021:e1dd:fc6a:83ee:5648:830c:5681 2001:0021:587d:06fe:06d8:af84:0a65:8168 allow
+2001:0021:6d6f:e8ec:7dce:bd01:a6d2:239e 2001:0021:e1dd:fc6a:83ee:5648:830c:5681 allow
+2001:0021:6d6f:e8ec:7dce:bd01:a6d2:239e 2001:0021:b700:c845:6c5f:46bb:be58:2388 allow
+2001:0021:6d6f:e8ec:7dce:bd01:a6d2:239e 2001:0021:77aa:b34f:657b:a4b2:ea6f:7537 allow
+2001:0021:6d6f:e8ec:7dce:bd01:a6d2:239e 2001:0021:394b:5c1b:a114:0f3f:d0b8:74b2 allow
+2001:0021:6d6f:e8ec:7dce:bd01:a6d2:239e 2001:0021:587d:06fe:06d8:af84:0a65:8168 allow
+2001:0021:b700:c845:6c5f:46bb:be58:2388 2001:0021:e1dd:fc6a:83ee:5648:830c:5681 allow
+2001:0021:b700:c845:6c5f:46bb:be58:2388 2001:0021:6d6f:e8ec:7dce:bd01:a6d2:239e allow
+2001:0021:b700:c845:6c5f:46bb:be58:2388 2001:0021:77aa:b34f:657b:a4b2:ea6f:7537 allow
+2001:0021:b700:c845:6c5f:46bb:be58:2388 2001:0021:394b:5c1b:a114:0f3f:d0b8:74b2 allow
+2001:0021:b700:c845:6c5f:46bb:be58:2388 2001:0021:587d:06fe:06d8:af84:0a65:8168 allow
+2001:0021:77aa:b34f:657b:a4b2:ea6f:7537 2001:0021:e1dd:fc6a:83ee:5648:830c:5681 allow
+2001:0021:77aa:b34f:657b:a4b2:ea6f:7537 2001:0021:6d6f:e8ec:7dce:bd01:a6d2:239e allow
+2001:0021:77aa:b34f:657b:a4b2:ea6f:7537 2001:0021:b700:c845:6c5f:46bb:be58:2388 allow
+2001:0021:77aa:b34f:657b:a4b2:ea6f:7537 2001:0021:394b:5c1b:a114:0f3f:d0b8:74b2 allow
+2001:0021:77aa:b34f:657b:a4b2:ea6f:7537 2001:0021:587d:06fe:06d8:af84:0a65:8168 allow
+2001:0021:394b:5c1b:a114:0f3f:d0b8:74b2 2001:0021:77aa:b34f:657b:a4b2:ea6f:7537 allow
+2001:0021:394b:5c1b:a114:0f3f:d0b8:74b2 2001:0021:b700:c845:6c5f:46bb:be58:2388 allow
+2001:0021:394b:5c1b:a114:0f3f:d0b8:74b2 2001:0021:6d6f:e8ec:7dce:bd01:a6d2:239e allow
+2001:0021:394b:5c1b:a114:0f3f:d0b8:74b2 2001:0021:587d:06fe:06d8:af84:0a65:8168 allow
+2001:0021:394b:5c1b:a114:0f3f:d0b8:74b2 2001:0021:e1dd:fc6a:83ee:5648:830c:5681 allow
+2001:0021:587d:06fe:06d8:af84:0a65:8168 2001:0021:394b:5c1b:a114:0f3f:d0b8:74b2 allow
+2001:0021:587d:06fe:06d8:af84:0a65:8168 2001:0021:77aa:b34f:657b:a4b2:ea6f:7537 allow
+2001:0021:587d:06fe:06d8:af84:0a65:8168 2001:0021:b700:c845:6c5f:46bb:be58:2388 allow
+2001:0021:587d:06fe:06d8:af84:0a65:8168 2001:0021:6d6f:e8ec:7dce:bd01:a6d2:239e allow
+2001:0021:587d:06fe:06d8:af84:0a65:8168 2001:0021:e1dd:fc6a:83ee:5648:830c:5681 allow"""
+spokes="${spokes:-0}" # Default to 0 if not set
+total_spokes=$((3 + spokes))
 
-# for i in $(seq 1 $total_spokes); do
-#   if [ "$i" -lt 4 ]; then
-#     hub_path="${project}/${h1}${i}/hiplib/config/mesh"
-#     if [ -f "$hub_path" ]; then
-#       hub_mesh=$(<"$hub_path")
-#       rules="${rules}$'\n'${hub_mesh}"
-#     else
-#       echo "Error: File not found at $hub_path" >&2
-#     fi
-#   fi
-#   spoke_path="${project}/${s1}${i}/hiplib/config/mesh"
-#   if [ -f "$spoke_path" ]; then
-#     spoke_mesh=$(<"$spoke_path")
-#     rules="${rules}$'\n'${spoke_mesh}"
-#   else
-#     echo "Error: File not found at $spoke_path" >&2
-#   fi
-# done
+for i in $(seq 1 $total_spokes); do
+  if [ $i -gt 3 ]; then
+    spoke_path="${project}/${s1}${i}/hiplib/config/mesh"
+    if [ -f "$spoke_path" ]; then
+      spoke_mesh=$(<"$spoke_path")
+      spoke_mesh_modified=$(echo "$spoke_mesh" | sed "s/$/ allow/")
+      rules="${rules}"$'\n'"${spoke_mesh_modified}"
+      #Might need to add hubs here too.... (from hardcoded values above)
+    else
+      echo "Error: File not found at $spoke_path" >&2
+    fi
+  fi
+done
 
-# for i in $(seq 1 $total_spokes); do
-#   if [ "$i" -lt 4 ]; then
-#     hub_path="${project}/${h1}${i}/hiplib/config/mesh"
-#     echo "$rules" | sudo tee "$hub_path" > /dev/null
-#   fi
-#   spoke_path="${project}/${s1}${i}/hiplib/config/mesh"
-#   echo "$rules" | sudo tee "$spoke_path" > /dev/null
-# done
+for i in $(seq 1 $total_spokes); do
+  if [ $i -lt 4 ]; then
+    hub_path="${project}/${h1}${i}/hiplib/config/rules"
+    echo "$rules" | sudo tee "$hub_path" > /dev/null
+  fi
+  spoke_path="${project}/${s1}${i}/hiplib/config/rules"
+  echo "$rules" | sudo tee "$spoke_path" > /dev/null
+  echo "Configured rules file for spoke ${i}"
+done
 
-echo "Running python mn setup"
+echo "Running python mn setup..."
 
 sudo python3 hipls-mn.py -n "${spokes}"
 
