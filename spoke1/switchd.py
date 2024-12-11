@@ -299,7 +299,7 @@ def ether_loop():
                 s = time()
                 packets = hiplib.process_l2_frame(frame, ihit, rhit, hip_config.config["switch"]["source_ip"]);
                 e = time()
-                #logging.info("L2 process time %f " % (e-s))
+                logging.info("L2 process time %f " % (e-s))
                 for (hip, packet, dest) in packets:
                     #logging.debug("Sending L2 frame to: %s %s" % (hexlify(ihit), hexlify(rhit)))
                     size = len(packet);

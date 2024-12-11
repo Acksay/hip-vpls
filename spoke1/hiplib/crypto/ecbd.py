@@ -14,8 +14,12 @@ class ECBD:
         self.participant_hits = [0] * self.nr_of_participants
         self.id = id
         self.z_list = [(0, 0)]*self.nr_of_participants
+        self.key = (0, 0)
         self.x_list = [(0, 0)]*self.nr_of_participants
         self._compute_z()
+
+    def is_key_computed(self):
+        return self.key != (0, 0)
 
     def _compute_z(self):
         z = scalar_mult(self.private_key, curve.g)
@@ -48,6 +52,7 @@ class ECBD:
             new_term = scalar_mult(n - (i+1), self.x_list[x_index])
             k = point_add(k, new_term)
         
+        self.key = k
         return k
     
     def _encode_public_list(self, public_list):

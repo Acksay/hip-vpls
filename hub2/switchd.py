@@ -240,7 +240,7 @@ def ip_sec_loop():
             s = time()
             (frame, src, dst) = hiplib.process_ip_sec_packet(packet)
             e = time()
-            logging.info("IPSEC process time %f " % (e-s))
+            #logging.info("IPSEC process time %f " % (e-s))
             if not frame:
                 continue;
             if len(frame) >= 2000:

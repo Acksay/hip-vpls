@@ -52,6 +52,8 @@ class ECBD:
             new_term = scalar_mult(n - (i+1), self.x_list[x_index])
             k = point_add(k, new_term)
         
+        self.key = k
+        
         return k
     
     def _encode_public_list(self, public_list):
