@@ -1701,11 +1701,14 @@ class HIPLib():
                 logging.debug("Processing R2 packet %f" % (time.time() - st));
                 logging.debug("Ending HIP BEX %f" % (time.time()));
                 end_time = time.time()
+                tot_time = end_time-self.start
+                src_ip = Utils.ipv4_bytes_to_string(src)
                 logging.debug("Complete BEX TIME åäö")
-                logging.debug(end_time-self.start)
-                logging.debug(Utils.ipv6_bytes_to_hex(ihit))
-                logging.debug(Utils.ipv4_bytes_to_string(src))
-
+                logging.debug(tot_time)
+                logging.debug(src_ip)
+                f = open("timefile.txt", "a")
+                f.write(str(tot_time) + "\nfrom: " + str(src_ip) + "\n")
+                f.close()
 
                 logging.debug("---------------------------------------------")
 
