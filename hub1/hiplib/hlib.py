@@ -2353,7 +2353,7 @@ class HIPLib():
             if icv != hmac_alg.digest(ip_sec_packet.get_byte_buffer()[:-hmac_alg.LENGTH]):
                 logging.critical("Invalid ICV in IPSec packet");
                 return  (None, None, None);
-            logging.info("Passed icv!!!!")
+            #logging.info("Passed icv!!!!")
 
             padded_data = ip_sec_packet.get_payload()[:-hmac_alg.LENGTH];
             frame  = IPSec.IPSecUtils.unpad(cipher.BLOCK_SIZE, padded_data);
@@ -2392,12 +2392,13 @@ class HIPLib():
             """
             #logging.debug("Sending IPv6 packet to %s" % (Utils.ipv6_bytes_to_hex_formatted(ihit)));
             #hip_tun.write(bytearray(ipv6_packet.get_buffer()));
+            """
             logging.info("ipsec rhit: {}".format(
                 self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(rhit))));
             logging.info("ipsec ihit: {}".format(
                 self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(ihit))));
+            """
 
-            sleep(1)
             if ihit != self.own_hit:
                 return (frame, rhit, ihit);
             else:
@@ -2421,9 +2422,9 @@ class HIPLib():
 
             rhit_in_participants = rhit in self.ecbd_storage.participant_hits;
             ihit_in_participants = ihit in self.ecbd_storage.participant_hits;
-            is_participant = rhit_in_participants or ihit_in_participants;
+            is_participant = rhit_in_participants and ihit_in_participants;
             
-            if self.ecbd_storage.is_key_computed() and is_participant:
+            if self.ecbd_storage.is_key_computed():
                 #logging.debug("Sending IPSEC packet...")
                 # IPv6 fields
                 rhit_str    = Utils.ipv6_bytes_to_hex_formatted(rhit);
@@ -2434,13 +2435,8 @@ class HIPLib():
                 dst_str = self.hit_resolver.resolve(
                     Utils.ipv6_bytes_to_hex_formatted_resolver(rhit));
 
-                logging.info("src_str: {}".format(src_str));
-                logging.info("dst_str: {}".format(dst_str));
-                sleep(1)
-                if not dst_str:
-                    return [];
-                if not src_str:
-                    return [];
+                #logging.info("src_str: {}".format(src_str));
+                #logging.info("dst_str: {}".format(dst_str));
                 #logging.info("dst string: {}".format(rhit_str))
                 dst = Math.int_to_bytes(
                     Utils.ipv4_to_int(dst_str));

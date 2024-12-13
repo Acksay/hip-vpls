@@ -1574,6 +1574,11 @@ class HIPLib():
                 return  (None, None, None);
             logging.info("Passed icv!!!!")
 
+            logging.info("ipsec rhit: {}".format(
+                self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(rhit))));
+            logging.info("ipsec ihit: {}".format(
+                self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(ihit))));
+
             padded_data = ip_sec_packet.get_payload()[:-hmac_alg.LENGTH];
             #logging.debug("Encrypted padded data");
             #logging.debug(padded_data);
@@ -1633,7 +1638,7 @@ class HIPLib():
             #logging.info("parts: {}".format(rhit in self.ecbd_storage.participant_hits));
             is_participant = rhit_in_participants or ihit_in_participants;
             
-            if self.ecbd_storage.is_key_computed() and is_participant:
+            if self.ecbd_storage.is_key_computed():
                 #logging.debug("Sending IPSEC packet...")
                 # IPv6 fields
                 rhit_str    = Utils.ipv6_bytes_to_hex_formatted(rhit);

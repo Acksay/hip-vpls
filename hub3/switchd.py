@@ -252,7 +252,7 @@ def ip_sec_loop():
             #logging.info("L2 send time %f " % (e-s))
             frame = Ethernet.EthernetFrame(frame);
             fib.set_next_hop(frame.get_source(), src, dst);
-            #logging.debug("Got frame in IPSec loop sending to L2 %s %s....", hexlify(frame.get_source()), hexlify(frame.get_destination()))
+            logging.debug("Got frame in IPSec loop sending to L2 %s %s....", hexlify(frame.get_source()), hexlify(frame.get_destination()))
             ee = time()
             #logging.info("Total time to process the IPSEC packet %f" % (ee - es))
         except Exception as e:
@@ -270,8 +270,10 @@ def ether_loop():
             #logging.info("Ethernet recv time %f " % (e-s))
             dst_mac = frame.get_destination();
             src_mac = frame.get_source();
+            #3a:77:a7:3e:62:51
 
-            #logging.debug("Got data on Ethernet link L2 %s %s..." % (hexlify(src_mac), hexlify(dst_mac)))
+
+            #logging.debug("Got data on Ethernet link L2 from %s to %s..." % (hexlify(src_mac), hexlify(dst_mac)))
 
             #logging.debug(hexlify(src_mac))
             #logging.debug(hexlify(dst_mac))
@@ -293,6 +295,8 @@ def ether_loop():
                         if size >= 2000:
                             continue;
                         s = time()
+
+                        #logging.info("ipsec packet going to {}".format(dest))
                         ip_sec_socket.sendto(packet, dest)
                         e = time()
                         #logging.info("IPSEC send time %f " % (e-s))

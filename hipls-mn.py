@@ -34,6 +34,7 @@ class NetworkTopo( Topo ):
         switch2 = self.addSwitch( 'sw2', cls=OVSKernelSwitch)
         switch3 = self.addSwitch( 'sw3', cls=OVSKernelSwitch)
         switch4 = self.addSwitch( 'sw4', cls=OVSKernelSwitch)
+
         self.addLink(switch4, hub1, intfName2='hu1-eth1', params2={ 'ip' : '192.168.3.1/29' })
         self.addLink(switch4, hub2, intfName2='hu2-eth1', params2={ 'ip' : '192.168.3.2/29' })
         self.addLink(switch4, hub3, intfName2='hu3-eth1', params2={ 'ip' : '192.168.3.3/29' })
@@ -65,16 +66,19 @@ class NetworkTopo( Topo ):
         #         params2={ 'ip' : '192.168.1.3/24' } )
         # self.addLink( s4, router4, intfName2='r4-eth0',
         #         params2={ 'ip' : '192.168.1.4/24' } )
-        # h1 = self.addHost( 'h1', ip='192.168.1.100/24',
-        #                    defaultRoute='via 192.168.1.1' )
-        # h2 = self.addHost( 'h2', ip='192.168.1.101/24',
-        #                    defaultRoute='via 192.168.1.1' )
+        h1 = self.addHost( 'h1', ip='192.168.1.100/24',
+                            defaultRoute='via 192.168.1.1' )
+        self.addLink(h1, switch1)
+        h2 = self.addHost( 'h2', ip='192.168.1.101/24',
+                            defaultRoute='via 192.168.1.2' )
+        self.addLink(h2, switch2)
         # h3 = self.addHost( 'h3', ip='192.168.1.102/24',
         #                    defaultRoute='via 192.168.1.1' )
         # h4 = self.addHost( 'h4', ip='192.168.1.103/24',
         #                    defaultRoute='via 192.168.1.1' )
         # for h, s in [ (h1, s1), (h2, s2), (h3, s3), (h4, s4) ]:
         #     self.addLink( h, s )
+
 from time import sleep
 def run():
     topo = NetworkTopo()
@@ -105,6 +109,10 @@ def run():
     info( net[ 'sp1' ].cmd( '/sbin/ethtool -K sp1-eth1 rx off tx off sg off' ) )
     info( net[ 'sp2' ].cmd( '/sbin/ethtool -K sp2-eth1 rx off tx off sg off' ) )
     info( net[ 'sp3' ].cmd( '/sbin/ethtool -K sp3-eth1 rx off tx off sg off' ) )
+
+    info( net[ 'h1' ].cmd( '/sbin/ethtool -K h1-eth0 rx off tx off sg off' ) )
+
+    info( net[ 'h1' ].cmd( 'ifconfig h1-eth0 mtu 1400' ) )
 
     # net['hu1'].cmd('ip route add 192.168.1.4/24 via 192.168.3.4 dev hu1-eth1')
     # net['hu2'].cmd('ip route add 192.168.1.4/24 via 192.168.3.4 dev hu2-eth1')
@@ -137,6 +145,8 @@ def run():
     info( net[ 'sp2' ].cmd( 'route -n' ) )
     info( net[ 'sp3' ].cmd( 'route -n' ) )
     info('*** Testing connectivity ***\n')
+
+    #info( net[ 'h1' ].cmd( '/sbin/ethtool -K h1-eth0 rx off tx off sg off' ) )
     # info(net['hu1'].cmd('ping -c 3 192.168.3.2'))  # Test hu1 to hu2
     # info(net['hu1'].cmd('ping -c 3 192.168.3.3'))  # Test hu1 to hu3
     # info(net['sp1'].cmd('ping -c 3 192.168.1.1'))  # Test sp1 to hu1
