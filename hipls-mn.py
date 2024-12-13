@@ -26,24 +26,30 @@ class NetworkTopo( Topo ):
         hub2 = self.addNode( 'hu2', cls=LinuxRouter )
         hub3 = self.addNode( 'hu3', cls=LinuxRouter )
 
-        spoke1 = self.addNode( 'sp1', cls=LinuxRouter )
-        spoke2 = self.addNode( 'sp2', cls=LinuxRouter )
-        spoke3 = self.addNode( 'sp3', cls=LinuxRouter )
+        #spoke1 = self.addNode( 'sp1', cls=LinuxRouter )
+        #spoke2 = self.addNode( 'sp2', cls=LinuxRouter )
+        #spoke3 = self.addNode( 'sp3', cls=LinuxRouter )
 
         switch1 = self.addSwitch( 'sw1', cls=OVSKernelSwitch)
         switch2 = self.addSwitch( 'sw2', cls=OVSKernelSwitch)
         switch3 = self.addSwitch( 'sw3', cls=OVSKernelSwitch)
         switch4 = self.addSwitch( 'sw4', cls=OVSKernelSwitch)
-        self.addLink(switch4, hub1, intfName2='hu1-eth1', params2={ 'ip' : '192.168.3.1/29' })
-        self.addLink(switch4, hub2, intfName2='hu2-eth1', params2={ 'ip' : '192.168.3.2/29' })
-        self.addLink(switch4, hub3, intfName2='hu3-eth1', params2={ 'ip' : '192.168.3.3/29' })
+        self.addLink(switch4, hub1, intfName2='hu1-eth1', params2={ 'ip' : '192.168.3.1/24' })
+        self.addLink(switch4, hub2, intfName2='hu2-eth1', params2={ 'ip' : '192.168.3.2/24' })
+        self.addLink(switch4, hub3, intfName2='hu3-eth1', params2={ 'ip' : '192.168.3.3/24' })
 
         self.addLink(switch1, hub1,  intfName2='hu1-eth0', params2={ 'ip' : '192.168.1.1/24'}) #/24?? ,
-        self.addLink(switch1, spoke1, intfName2='sp1-eth1', params2={ 'ip' : '192.168.1.4/24'} ) #/24??? 192.168.3.4?? ,
+        #self.addLink(switch1, spoke1, intfName2='sp1-eth1', params2={ 'ip' : '192.168.1.4/24'} ) #/24??? 192.168.3.4?? ,
         self.addLink(switch2, hub2,  intfName2='hu2-eth0', params2={ 'ip' : '192.168.1.2/24'}) #/24?? ,
-        self.addLink(switch2, spoke2, intfName2='sp2-eth1', params2={ 'ip' : '192.168.1.5/24'} )
+        #self.addLink(switch2, spoke2, intfName2='sp2-eth1', params2={ 'ip' : '192.168.1.5/24'} )
         self.addLink(switch3, hub3,  intfName2='hu3-eth0', params2={ 'ip' : '192.168.1.3/24'}) #/24?? ,
-        self.addLink(switch3, spoke3, intfName2='sp3-eth1', params2={ 'ip' : '192.168.1.6/24'} )
+        #self.addLink(switch3, spoke3, intfName2='sp3-eth1', params2={ 'ip' : '192.168.1.6/24'} )
+        h1 = self.addHost( 'h1', ip='192.168.1.100/24',
+                           defaultRoute='via 192.168.1.1' )
+        self.addLink(h1, switch1)
+        h2 = self.addHost( 'h2', ip='192.168.1.101/24',
+                           defaultRoute='via 192.168.1.2' )
+        self.addLink(h2, switch2)
         # s1, s2, s3, s4, s5 = [ self.addSwitch( s, cls=OVSKernelSwitch ) for s in ( 's1', 's2', 's3', 's4', 's5' ) ]
         # self.addLink( s5, router1,
         #         intfName2='r1-eth1',
@@ -80,17 +86,17 @@ def run():
     topo = NetworkTopo()
     net = Mininet(topo=topo, switch=OVSKernelSwitch, controller = OVSController)
     net.start()
-    info( net[ 'hu1' ].cmd( 'ifconfig hu1-eth1 192.168.3.1 netmask 255.255.255.248') )
-    info( net[ 'hu2' ].cmd( 'ifconfig hu2-eth1 192.168.3.2 netmask 255.255.255.248' ) )
-    info( net[ 'hu3' ].cmd( 'ifconfig hu3-eth1 192.168.3.3 netmask 255.255.255.248' ) )
+    info( net[ 'hu1' ].cmd( 'ifconfig hu1-eth1 192.168.3.1 netmask 255.255.255.0') )
+    info( net[ 'hu2' ].cmd( 'ifconfig hu2-eth1 192.168.3.2 netmask 255.255.255.0' ) )
+    info( net[ 'hu3' ].cmd( 'ifconfig hu3-eth1 192.168.3.3 netmask 255.255.255.0' ) )
     
-    info( net[ 'sp1' ].cmd( 'ifconfig sp1-eth1 192.168.1.4 netmask 255.255.255.0' ) )
+    #info( net[ 'sp1' ].cmd( 'ifconfig sp1-eth1 192.168.1.4 netmask 255.255.255.0' ) )
     info( net[ 'hu1' ].cmd( 'ifconfig hu1-eth0 192.168.1.1 netmask 255.255.255.0'))
 
-    info( net[ 'sp2' ].cmd( 'ifconfig sp2-eth1 192.168.1.5 netmask 255.255.255.0' ) )
+    #info( net[ 'sp2' ].cmd( 'ifconfig sp2-eth1 192.168.1.5 netmask 255.255.255.0' ) )
     info( net[ 'hu2' ].cmd( 'ifconfig hu2-eth0 192.168.1.2 netmask 255.255.255.0'))
 
-    info( net[ 'sp3' ].cmd( 'ifconfig sp3-eth1 192.168.1.6 netmask 255.255.255.0' ) )
+    #info( net[ 'sp3' ].cmd( 'ifconfig sp3-eth1 192.168.1.6 netmask 255.255.255.0' ) )
     info( net[ 'hu3' ].cmd( 'ifconfig hu3-eth0 192.168.1.3 netmask 255.255.255.0'))
 
     info( net[ 'hu1' ].cmd( '/sbin/ethtool -K hu1-eth0 rx off tx off sg off' ) )
@@ -102,18 +108,24 @@ def run():
     info( net[ 'hu3' ].cmd( '/sbin/ethtool -K hu3-eth0 rx off tx off sg off' ) )
     info( net[ 'hu3' ].cmd( '/sbin/ethtool -K hu3-eth1 rx off tx off sg off' ) )
 
-    info( net[ 'sp1' ].cmd( '/sbin/ethtool -K sp1-eth1 rx off tx off sg off' ) )
-    info( net[ 'sp2' ].cmd( '/sbin/ethtool -K sp2-eth1 rx off tx off sg off' ) )
-    info( net[ 'sp3' ].cmd( '/sbin/ethtool -K sp3-eth1 rx off tx off sg off' ) )
+    #info( net[ 'sp1' ].cmd( '/sbin/ethtool -K sp1-eth1 rx off tx off sg off' ) )
+    #info( net[ 'sp2' ].cmd( '/sbin/ethtool -K sp2-eth1 rx off tx off sg off' ) )
+    #info( net[ 'sp3' ].cmd( '/sbin/ethtool -K sp3-eth1 rx off tx off sg off' ) )
+
+    info( net[ 'h1' ].cmd( '/sbin/ethtool -K h1-eth0 rx off tx off sg off' ) )
+    info( net[ 'h2' ].cmd( '/sbin/ethtool -K h2-eth0 rx off tx off sg off' ) )
+
+    info( net[ 'h1' ].cmd( 'ifconfig h1-eth0 mtu 1400' ) )
+    info( net[ 'h2' ].cmd( 'ifconfig h2-eth0 mtu 1400' ) )
 
     # net['hu1'].cmd('ip route add 192.168.1.4/24 via 192.168.3.4 dev hu1-eth1')
     # net['hu2'].cmd('ip route add 192.168.1.4/24 via 192.168.3.4 dev hu2-eth1')
     # net['hu3'].cmd('ip route add 192.168.1.4/24 via 192.168.3.4 dev hu3-eth1')
-    net['sp1'].cmd('ip route add 192.168.3.0/29 via 192.168.1.1 dev sp1-eth1') #So SP1 can ping HU1
-    net['sp2'].cmd('ip route add 192.168.3.0/29 via 192.168.1.2 dev sp2-eth1') #So SP1 can ping HU1
-    net['sp3'].cmd('ip route add 192.168.3.0/29 via 192.168.1.3 dev sp3-eth1') #So SP1 can ping HU1
+    #net['sp1'].cmd('ip route add 192.168.3.0/29 via 192.168.1.1 dev sp1-eth1') #So SP1 can ping HU1
+    #net['sp2'].cmd('ip route add 192.168.3.0/29 via 192.168.1.2 dev sp2-eth1') #So SP1 can ping HU1
+    #net['sp3'].cmd('ip route add 192.168.3.0/29 via 192.168.1.3 dev sp3-eth1') #So SP1 can ping HU1
     # Disable offloading (to avoid Mininet quirks)
-    for router in ['hu1', 'hu2', 'hu3', 'sp1', 'sp2', 'sp3']:
+    for router in ['hu1', 'hu2', 'hu3']: #, 'sp1', 'sp2', 'sp3']:
         for iface in ['eth0', 'eth1']:
             net[router].cmd(f'/sbin/ethtool -K {router}-{iface} rx off tx off sg off')
 
@@ -133,14 +145,15 @@ def run():
     info( net[ 'hu1' ].cmd( 'route -n' ) )
     info( net[ 'hu2' ].cmd( 'route -n' ) )
     info( net[ 'hu3' ].cmd( 'route -n' ) )
-    info( net[ 'sp1' ].cmd( 'route -n' ) )
-    info( net[ 'sp2' ].cmd( 'route -n' ) )
-    info( net[ 'sp3' ].cmd( 'route -n' ) )
+    #info( net[ 'sp1' ].cmd( 'route -n' ) )
+    #info( net[ 'sp2' ].cmd( 'route -n' ) )
+    #info( net[ 'sp3' ].cmd( 'route -n' ) )
     info('*** Testing connectivity ***\n')
     # info(net['hu1'].cmd('ping -c 3 192.168.3.2'))  # Test hu1 to hu2
     # info(net['hu1'].cmd('ping -c 3 192.168.3.3'))  # Test hu1 to hu3
     # info(net['sp1'].cmd('ping -c 3 192.168.1.1'))  # Test sp1 to hu1
     # info(net['hu1'].cmd('ping -c 3 192.168.1.4'))  # Test hu1 to sp1
+    """
     info( '*** Running HIPLS on router 1 *** \n') 
     info( net[ 'hu1' ].cmd( 'cd hub1 && python3 switchd.py &' ) )
     info( '*** Running HIPLS on router 2 *** \n')
@@ -152,6 +165,7 @@ def run():
     info( '*** Running HIPLS on router 4 *** \n')
     info( net[ 'sp2' ].cmd( 'cd spoke2 && python3 switchd.py &' ) )
     info( net[ 'sp3' ].cmd( 'cd spoke3 && python3 switchd.py &' ) )
+    """
     CLI( net )
     net.stop()
 
