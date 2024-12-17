@@ -1,6 +1,6 @@
 config = {
 	"switch": {
-		"l2interface": "sp2-eth1",
+		"l2interface": "sp2-eth0",
 		"mesh": "hiplib/config/mesh",
                 "source_ip": "192.168.1.5"
 	},
