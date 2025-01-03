@@ -160,11 +160,8 @@ class HIPLib():
         self.esp_transform_storage = HIPState.Storage();
         self.hi_param_storage  = HIPState.Storage();
         self.ecbd_storage = ECBD(self.id);
-        self.ecbd_keymat_storage = None;
         self.spokes_response = [];
         self.hubs_response = [];
-        self.sa_record = None;
-        self.participant_hits = {};
         self.ipsec_hmac_key = None;
 
         #self.ecbd_storage.set_index(self.id);
@@ -242,9 +239,6 @@ class HIPLib():
             if original_checksum != checksum:
                 logging.critical("Invalid checksum");
                 return [];
-
-            self.participant_hits[src_str] = ihit;
-            self.participant_hits[dst_str] = rhit;
 
             if hip_packet.get_packet_type() == HIP.HIP_I1_PACKET:
                 logging.info("---------------------------- I1 packet ---------------------------- ");
@@ -974,10 +968,6 @@ class HIPLib():
                         for frag in frags:
                             response.append((bytearray(frag.get_buffer()), r1[1]))
                     self.spokes_response.clear();
-
-
-                #logging.debug("Z-LIST: {}".format(self.ecbd_storage.z_list));
-                #logging.debug("X-LIST: {}".format(self.ecbd_storage.x_list));
 
             elif hip_packet.get_packet_type() == HIP.HIP_I2_PACKET:
                 logging.info("---------------------------- I2 packet ---------------------------- ");
@@ -2297,14 +2287,11 @@ class HIPLib():
             if not sa_record:
                 return (None, None, None) 
             hmac_alg    = sa_record.get_hmac_alg();
-            #hmac_key    = self.ecbd_storage.key[0].to_bytes(hmac_alg.LENGTH, "big");
-            hmac_key    = (1).to_bytes(hmac_alg.LENGTH, "big");
-            hmac_alg.key = hmac_key;
+            hmac_alg.key = self.ecbd_storage.key[0].to_bytes(hmac_alg.LENGTH, "big");
             ihit        = sa_record.get_src();
             rhit        = sa_record.get_dst();
 
 
-            logging.info(Utils.ipv6_bytes_to_hex_formatted(ihit))
             if Utils.is_hit_smaller(rhit, ihit):
                 sv = self.state_variables.get(Utils.ipv6_bytes_to_hex_formatted(rhit),
                     Utils.ipv6_bytes_to_hex_formatted(ihit));
@@ -2334,20 +2321,15 @@ class HIPLib():
             logging.debug("--------------------------------------------")
             """
 
-            """
             if icv != hmac_alg.digest(ip_sec_packet.get_byte_buffer()[:-hmac_alg.LENGTH]):
                 logging.critical("Invalid ICV in IPSec packet");
                 ihit = self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(ihit))
                 rhit = self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(rhit))
                 logging.critical("ihit: {} rhit: {}".format(ihit, rhit))
                 return  (None, None, None);
-            """
-
-            logging.info("Passed icv!!!!")
 
             frame = ip_sec_packet.get_payload()[:-hmac_alg.LENGTH];
-            #next_header    = IPSec.IPSecUtils.get_next_header(decrypted_data);
-            """
+
             if Utils.is_hit_smaller(rhit, ihit):
                 hip_state = self.hip_state_machine.get(Utils.ipv6_bytes_to_hex_formatted(rhit), 
                     Utils.ipv6_bytes_to_hex_formatted(ihit));
@@ -2357,15 +2339,9 @@ class HIPLib():
             if not hip_state:
                 return (None, None, None);
             hip_state.established();
-            """
+
             #logging.debug("Sending IPv6 packet to %s" % (Utils.ipv6_bytes_to_hex_formatted(ihit)));
             #hip_tun.write(bytearray(ipv6_packet.get_buffer()));
-            """
-            logging.info("ipsec rhit: {}".format(
-                Utils.ipv6_bytes_to_hex_formatted_resolver(rhit)));
-            #ulogging.info("ipsec ihit: {}".format(
-                Utils.ipv6_bytes_to_hex_formatted_resolver(ihit)));
-            """
 
             if ihit != self.own_hit:
                 return (frame, rhit, ihit);
@@ -2388,10 +2364,6 @@ class HIPLib():
                 hip_state = self.hip_state_machine.get(Utils.ipv6_bytes_to_hex_formatted(ihit), 
                     Utils.ipv6_bytes_to_hex_formatted(rhit));
 
-            rhit_in_participants = rhit in self.ecbd_storage.participant_hits;
-            ihit_in_participants = ihit in self.ecbd_storage.participant_hits;
-            is_participant = rhit_in_participants and ihit_in_participants;
-            
             if self.ecbd_storage.is_key_computed():
                 #logging.debug("Sending IPSEC packet...")
                 # IPv6 fields
@@ -2423,9 +2395,7 @@ class HIPLib():
                 seq        = sa_record.get_sequence();
                 spi        = sa_record.get_spi();
                 hmac_alg   = sa_record.get_hmac_alg();
-                #hmac_key    = self.ecbd_storage.key[0].to_bytes(hmac_alg.LENGTH, "big");
-                hmac_key    = (1).to_bytes(hmac_alg.LENGTH, "big");
-                hmac_alg.key = hmac_key;
+                hmac_alg.key = self.ecbd_storage.key[0].to_bytes(hmac_alg.LENGTH, "big");
                 src        = sa_record.get_src();
                 dst        = sa_record.get_dst();
                 sa_record.increment_sequence();
@@ -2505,8 +2475,6 @@ class HIPLib():
                 src = Math.int_to_bytes(
                     Utils.ipv4_to_int(src_str));
                 
-                #logging.info("src: {}, dst: {}".format(src_str, dst_str))
-
                 st = time.time();
 
                 # Create I1 packet

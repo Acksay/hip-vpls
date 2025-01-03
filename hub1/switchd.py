@@ -270,17 +270,7 @@ def ether_loop():
             #logging.info("Ethernet recv time %f " % (e-s))
             dst_mac = frame.get_destination();
             src_mac = frame.get_source();
-            #3a:77:a7:3e:62:51
 
-
-            #logging.debug("Got data on Ethernet link L2 from %s to %s..." % (hexlify(src_mac), hexlify(dst_mac)))
-
-            #logging.debug(hexlify(src_mac))
-            #logging.debug(hexlify(dst_mac))
-
-            #logging.debug("----------------------------------")
-            es = time()
-            
             mesh = fib.get_next_hop(dst_mac);
             for (ihit, rhit) in mesh:
                 s = time()
@@ -288,15 +278,12 @@ def ether_loop():
                 e = time()
                 #logging.info("L2 process time %f " % (e-s))
                 for (hip, packet, dest) in packets:
-                    #logging.info("Packet size: {}".format(len(packet)));
-                    #logging.debug("Sending L2 frame to: %s %s" % (hexlify(ihit), hexlify(rhit)))
                     size = len(packet);
                     if not hip:
                         if size >= 2000:
                             continue;
                         s = time()
 
-                        #logging.info("ipsec packet going to {}".format(dest))
                         ip_sec_socket.sendto(packet, dest)
                         e = time()
                         #logging.info("IPSEC send time %f " % (e-s))
