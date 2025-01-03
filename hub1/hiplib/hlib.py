@@ -165,6 +165,7 @@ class HIPLib():
         self.hubs_response = [];
         self.sa_record = None;
         self.participant_hits = {};
+        self.ipsec_hmac_key = None;
 
         #self.ecbd_storage.set_index(self.id);
 
@@ -1448,22 +1449,14 @@ class HIPLib():
 
                 (cipher, hmac) = ESPTransformFactory.get(selected_esp_transform);
 
-                # OI OI HMAC KEY 1
-                if self.ecbd_storage.is_key_computed():
-                    hmac_key = self.ecbd_storage.key[0].to_bytes(hmac.LENGTH, "big");
-                    cipher_key = (1).to_bytes(cipher.KEY_SIZE_BITS//8, "big");
-                    sa_record = SA.SecurityAssociationRecord(cipher.ALG_ID, hmac.ALG_ID, cipher_key, hmac_key, src, dst);
-                    sa_record.set_spi(responders_spi);
-                    self.ip_sec_sa.add_record(Utils.ipv6_bytes_to_hex_formatted(rhit), 
-                        Utils.ipv6_bytes_to_hex_formatted(ihit), sa_record);
-                    
-                    hmac_key = self.ecbd_storage.key[0].to_bytes(hmac.LENGTH, "big");
-                    cipher_key = (1).to_bytes(cipher.KEY_SIZE_BITS//8, "big");
-                    sa_record = SA.SecurityAssociationRecord(cipher.ALG_ID, hmac.ALG_ID, cipher_key, hmac_key, rhit, ihit);
-                    sa_record.set_spi(initiators_spi);
-                    self.ip_sec_sa.add_record(dst_str, src_str, sa_record);
+                sa_record = SA.SecurityAssociationRecord(cipher.ALG_ID, hmac.ALG_ID, None, None, src, dst);
+                sa_record.set_spi(responders_spi);
+                self.ip_sec_sa.add_record(Utils.ipv6_bytes_to_hex_formatted(rhit), 
+                    Utils.ipv6_bytes_to_hex_formatted(ihit), sa_record);
 
-                    self.sa_record = sa_record;
+                sa_record = SA.SecurityAssociationRecord(cipher.ALG_ID, hmac.ALG_ID, None, None, rhit, ihit);
+                sa_record.set_spi(initiators_spi);
+                self.ip_sec_sa.add_record(dst_str, src_str, sa_record);
                 
                 if Utils.is_hit_smaller(rhit, ihit):
                     sv = self.state_variables.get(Utils.ipv6_bytes_to_hex_formatted(rhit),
@@ -1691,22 +1684,15 @@ class HIPLib():
 
                 (cipher, hmac) = ESPTransformFactory.get(selected_esp_transform);
 
-                if self.ecbd_storage.is_key_computed():
-                    hmac_key = self.ecbd_storage.key[0].to_bytes(hmac.LENGTH, "big");
-                    cipher_key = (1).to_bytes(cipher.KEY_SIZE_BITS//8, "big");
-                    sa_record = SA.SecurityAssociationRecord(cipher.ALG_ID, hmac.ALG_ID, cipher_key, hmac_key, dst, src);
-                    sa_record.set_spi(responders_spi);
-                    
-                    self.ip_sec_sa.add_record(Utils.ipv6_bytes_to_hex_formatted(rhit), 
-                        Utils.ipv6_bytes_to_hex_formatted(ihit), sa_record);
-                    
-                    hmac_key = self.ecbd_storage.key[0].to_bytes(hmac.LENGTH, "big");
-                    cipher_key = (1).to_bytes(cipher.KEY_SIZE_BITS//8, "big");
-                    sa_record = SA.SecurityAssociationRecord(cipher.ALG_ID, hmac.ALG_ID, cipher_key, hmac_key, rhit, ihit);
-                    sa_record.set_spi(responders_spi);
-                    self.ip_sec_sa.add_record(src_str, dst_str, sa_record);
+                sa_record = SA.SecurityAssociationRecord(cipher.ALG_ID, hmac.ALG_ID, None, None, dst, src);
+                sa_record.set_spi(responders_spi);
+                
+                self.ip_sec_sa.add_record(Utils.ipv6_bytes_to_hex_formatted(rhit), 
+                    Utils.ipv6_bytes_to_hex_formatted(ihit), sa_record);
 
-                    self.sa_record = sa_record;
+                sa_record = SA.SecurityAssociationRecord(cipher.ALG_ID, hmac.ALG_ID, None, None, rhit, ihit);
+                sa_record.set_spi(initiators_spi);
+                self.ip_sec_sa.add_record(src_str, dst_str, sa_record);
 
                 # Transition to an Established state
                 hip_state.established();
@@ -2305,23 +2291,20 @@ class HIPLib():
             src_str       = Utils.ipv4_bytes_to_string(src);
             dst_str       = Utils.ipv4_bytes_to_string(dst);
 
-
             #logging.debug("Got packet from %s to %s of %d bytes" % (src_str, dst_str, len([])));
             # Get SA record and construct the ESP payload
-            #sa_record   = self.ip_sec_sa.get_record(src_str, dst_str);
-            sa_record = self.sa_record;
+            sa_record   = self.ip_sec_sa.get_record(src_str, dst_str);
             if not sa_record:
                 return (None, None, None) 
             hmac_alg    = sa_record.get_hmac_alg();
-            cipher      = sa_record.get_aes_alg();
-            hmac_key    = sa_record.get_hmac_key();
-            cipher_key  = sa_record.get_aes_key();
+            #hmac_key    = self.ecbd_storage.key[0].to_bytes(hmac_alg.LENGTH, "big");
+            hmac_key    = (1).to_bytes(hmac_alg.LENGTH, "big");
+            hmac_alg.key = hmac_key;
             ihit        = sa_record.get_src();
             rhit        = sa_record.get_dst();
 
-            ihit = self.participant_hits[src_str];
-            rhit = self.participant_hits[dst_str];
 
+            logging.info(Utils.ipv6_bytes_to_hex_formatted(ihit))
             if Utils.is_hit_smaller(rhit, ihit):
                 sv = self.state_variables.get(Utils.ipv6_bytes_to_hex_formatted(rhit),
                     Utils.ipv6_bytes_to_hex_formatted(ihit));
@@ -2330,6 +2313,7 @@ class HIPLib():
                     Utils.ipv6_bytes_to_hex_formatted(rhit));
 
             sv.data_timeout = time.time() + self.config["general"]["UAL"];
+
             """
             logging.debug(hexlify(ihit))
             logging.debug(hexlify(rhit))
@@ -2350,35 +2334,19 @@ class HIPLib():
             logging.debug("--------------------------------------------")
             """
 
+            """
             if icv != hmac_alg.digest(ip_sec_packet.get_byte_buffer()[:-hmac_alg.LENGTH]):
                 logging.critical("Invalid ICV in IPSec packet");
+                ihit = self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(ihit))
+                rhit = self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(rhit))
+                logging.critical("ihit: {} rhit: {}".format(ihit, rhit))
                 return  (None, None, None);
-            #logging.info("Passed icv!!!!")
+            """
 
-            padded_data = ip_sec_packet.get_payload()[:-hmac_alg.LENGTH];
-            frame  = IPSec.IPSecUtils.unpad(cipher.BLOCK_SIZE, padded_data);
-            #logging.debug("Encrypted padded data");
-            #logging.debug(padded_data);
+            logging.info("Passed icv!!!!")
 
-            #iv          = padded_data[:cipher.BLOCK_SIZE];
-            
-            #logging.debug("IV");
-            #logging.debug(iv);
-
-            #padded_data = padded_data[cipher.BLOCK_SIZE:];
-
-            #logging.debug("Padded data");
-            #logging.debug(padded_data);
-
-            #decrypted_data = cipher.decrypt(cipher_key, bytearray(iv), bytearray(padded_data));
-
-            #logging.debug("Decrypted padded data");
-            #logging.debug(decrypted_data);
-
-            #frame  = IPSec.IPSecUtils.unpad(cipher.BLOCK_SIZE, decrypted_data);
+            frame = ip_sec_packet.get_payload()[:-hmac_alg.LENGTH];
             #next_header    = IPSec.IPSecUtils.get_next_header(decrypted_data);
-            
-
             """
             if Utils.is_hit_smaller(rhit, ihit):
                 hip_state = self.hip_state_machine.get(Utils.ipv6_bytes_to_hex_formatted(rhit), 
@@ -2394,9 +2362,9 @@ class HIPLib():
             #hip_tun.write(bytearray(ipv6_packet.get_buffer()));
             """
             logging.info("ipsec rhit: {}".format(
-                self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(rhit))));
-            logging.info("ipsec ihit: {}".format(
-                self.hit_resolver.resolve(Utils.ipv6_bytes_to_hex_formatted_resolver(ihit))));
+                Utils.ipv6_bytes_to_hex_formatted_resolver(rhit)));
+            #ulogging.info("ipsec ihit: {}".format(
+                Utils.ipv6_bytes_to_hex_formatted_resolver(ihit)));
             """
 
             if ihit != self.own_hit:
@@ -2435,14 +2403,6 @@ class HIPLib():
                 dst_str = self.hit_resolver.resolve(
                     Utils.ipv6_bytes_to_hex_formatted_resolver(rhit));
 
-                #logging.info("src_str: {}".format(src_str));
-                #logging.info("dst_str: {}".format(dst_str));
-                #logging.info("dst string: {}".format(rhit_str))
-                dst = Math.int_to_bytes(
-                    Utils.ipv4_to_int(dst_str));
-                src = Math.int_to_bytes(
-                    Utils.ipv4_to_int(src_str));
-
                 if Utils.is_hit_smaller(rhit, ihit):
                     sv = self.state_variables.get(rhit_str,
                         ihit_str);
@@ -2452,23 +2412,22 @@ class HIPLib():
                 sv.data_timeout = time.time() + self.config["general"]["UAL"];
 
                 # Get SA record and construct the ESP payload
-                """
                 try:
                     sa_record  = self.ip_sec_sa.get_record(ihit_str, rhit_str);
                 except:
-                    sa_record  = self.ip_sec_sa.get_record(rhit_str, ihit_str);
-                """
-                sa_record = self.sa_record;
+                    try: 
+                        sa_record  = self.ip_sec_sa.get_record(rhit_str, ihit_str);
+                    except:
+                        return []
 
                 seq        = sa_record.get_sequence();
                 spi        = sa_record.get_spi();
                 hmac_alg   = sa_record.get_hmac_alg();
-                cipher     = sa_record.get_aes_alg();
-                hmac_key   = sa_record.get_hmac_key();
-                cipher_key = sa_record.get_aes_key();
-                #src        = sa_record.get_src();
-                #dst        = sa_record.get_dst();
-                iv         = Utils.generate_random(cipher.BLOCK_SIZE);
+                #hmac_key    = self.ecbd_storage.key[0].to_bytes(hmac_alg.LENGTH, "big");
+                hmac_key    = (1).to_bytes(hmac_alg.LENGTH, "big");
+                hmac_alg.key = hmac_key;
+                src        = sa_record.get_src();
+                dst        = sa_record.get_dst();
                 sa_record.increment_sequence();
                 """
                 logging.debug("HMAC key L2 frame");
@@ -2478,25 +2437,11 @@ class HIPLib():
                 logging.debug("IV");
                 logging.debug(hexlify(iv));
                 """
-                padded_data = IPSec.IPSecUtils.pad(cipher.BLOCK_SIZE, data, 0x0);
-                #logging.debug("Length of the padded data %d" % (len(padded_data)));
-
-                #encrypted_data = cipher.encrypt(cipher_key, iv, padded_data);
-                
-                """
-                logging.debug("Padded data");
-                logging.debug(iv + list(encrypted_data));
-                logging.debug(list(encrypted_data));
-
-                logging.debug("Encrypted padded data");
-                logging.debug(padded_data);
-                """
 
                 ip_sec_packet = IPSec.IPSecPacket();
                 ip_sec_packet.set_spi(spi);
                 ip_sec_packet.set_sequence(seq);
-                #ip_sec_packet.add_payload(iv + encrypted_data);
-                ip_sec_packet.add_payload(padded_data);
+                ip_sec_packet.add_payload(data);
 
                 #logging.debug("Calculating ICV over IPSec packet");
                 #logging.debug(list(ip_sec_packet.get_byte_buffer()));

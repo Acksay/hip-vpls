@@ -252,7 +252,7 @@ def ip_sec_loop():
             #logging.info("L2 send time %f " % (e-s))
             frame = Ethernet.EthernetFrame(frame);
             fib.set_next_hop(frame.get_source(), src, dst);
-            logging.debug("Got frame in IPSec loop sending to L2 %s %s....", hexlify(frame.get_source()), hexlify(frame.get_destination()))
+            #logging.debug("Got frame in IPSec loop sending to L2 %s %s....", hexlify(frame.get_source()), hexlify(frame.get_destination()))
             ee = time()
             #logging.info("Total time to process the IPSEC packet %f" % (ee - es))
         except Exception as e:
