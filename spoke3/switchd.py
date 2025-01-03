@@ -307,9 +307,9 @@ def ether_loop():
                         if size >= 2000:
                             continue;
                         s = time()
-                        ip_sec_socket.sendto(packet, dest)
+                        logging.info("IPSEC packet to {}".format(dest))
+                        hip_socket.sendto(packet, ("192.168.3.1", 0))
                         e = time()
-                        #logging.info("IPSEC send time %f " % (e-s))
                     else:
                         hip_socket.sendto(packet, dest)
             ee = time()

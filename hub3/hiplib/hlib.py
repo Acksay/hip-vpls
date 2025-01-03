@@ -249,7 +249,7 @@ class HIPLib():
                     return [];
 
                 hit = Utils.ipv6_bytes_to_hex_formatted_resolver(ihit);
-                if not hit in self.spokes:
+                if hit in self.hubs:
                     logging.info("Is hub");
                     self.hubs[hit] = "I1_RECEIVED";
                     for state in self.spokes.values():
@@ -924,7 +924,8 @@ class HIPLib():
                 ihit_str = Utils.ipv6_bytes_to_hex_formatted_resolver(ihit); 
                 rhit_str = Utils.ipv6_bytes_to_hex_formatted_resolver(ihit); 
 
-                self.hubs[ihit_str] = "R1_RECEIVED";
+                if ihit_str in self.hubs:
+                    self.hubs[ihit_str] = "R1_RECEIVED";
 
                 # Note to self spokes never send R1 so this has to be a hub
                 self.hubs_response.append(((
@@ -975,7 +976,6 @@ class HIPLib():
                 st = time.time();
                 
                 ihit_str = Utils.ipv6_bytes_to_hex_formatted_resolver(ihit);
-                #TODO this is a bandaid fix and very bad :)
                 if hip_state.is_i2_sent() and Utils.is_hit_smaller(rhit, ihit):
                     logging.debug("Staying in I2-SENT state. Dropping the packet...");
                     return [];
@@ -1373,7 +1373,8 @@ class HIPLib():
                             (src, dst, ihit, rhit)
                         ));
                     else:
-                        self.hubs[hit1] = "I2_RECEIVED"
+                        if ihit_str in self.hubs:
+                            self.hubs[hit1] = "I2_RECEIVED"
                         logging.debug("Sending R2 packet to %s %f" % (dst_str, time.time() - st));
                         self.hubs_response.append(((
                             bytearray(ipv4_packet.get_buffer()), (dst_str.strip(), 0)),
@@ -1387,6 +1388,8 @@ class HIPLib():
                     for hub_state in self.hubs.values():
                         if hub_state != "I2_RECEIVED" and hub_state != "R2_RECEIVED":
                             hubs_done = False;
+
+                    logging.info(self.hubs);
 
                     if hubs_done:
                         logging.info("HUBS X LIST: {}".format(self.ecbd_storage.x_list))
@@ -1435,7 +1438,7 @@ class HIPLib():
                         logging.info("Shared Key computed: {}".format(key));
 
 
-                #logging.debug("Setting SA records...");
+                logging.debug("Setting SA records...");
 
                 (cipher, hmac) = ESPTransformFactory.get(selected_esp_transform);
 
@@ -1489,6 +1492,8 @@ class HIPLib():
                 for hub_state in self.hubs.values():
                     if hub_state != "I2_RECEIVED" and hub_state != "R2_RECEIVED":
                         hubs_done = False;
+                
+                logging.info(self.hubs);
 
                 if hubs_done:
                     logging.info("HUBS X LIST: {}".format(self.ecbd_storage.x_list))
@@ -2281,11 +2286,13 @@ class HIPLib():
             src_str       = Utils.ipv4_bytes_to_string(src);
             dst_str       = Utils.ipv4_bytes_to_string(dst);
 
-            #logging.debug("Got packet from %s to %s of %d bytes" % (src_str, dst_str, len([])));
+            try:
+                sa_record   = self.ip_sec_sa.get_record(src_str, dst_str);
+            except:
+                logging.debug("Dropping ipsec packet from %s to %s of %d bytes" % (src_str, dst_str, len([])));
+                return (None, None, None);
+
             # Get SA record and construct the ESP payload
-            sa_record   = self.ip_sec_sa.get_record(src_str, dst_str);
-            if not sa_record:
-                return (None, None, None) 
             hmac_alg    = sa_record.get_hmac_alg();
             hmac_alg.key = self.ecbd_storage.key[0].to_bytes(hmac_alg.LENGTH, "big");
             ihit        = sa_record.get_src();
