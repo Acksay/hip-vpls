@@ -308,7 +308,7 @@ def ether_loop():
                             continue;
                         s = time()
                         logging.info("IPSEC packet to {}".format(dest))
-                        hip_socket.sendto(packet, ("192.168.3.1", 0))
+                        ip_sec_socket.sendto(packet, dest)
                         e = time()
                     else:
                         hip_socket.sendto(packet, dest)
